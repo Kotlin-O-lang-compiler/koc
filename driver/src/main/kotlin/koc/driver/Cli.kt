@@ -11,7 +11,7 @@ import java.nio.file.Path
 import koc.driver.api.koc
 import koc.utils.Diagnostics
 
-class Compiler : CliktCommand(help = "Options for running lexer") {
+class Compiler : CliktCommand(help = "Options for running koc") {
     private val sourceFiles: List<Path> by argument(name = "sources")
         .path(mustExist = true, canBeFile = true, canBeDir = false)
         .multiple(required = true)
