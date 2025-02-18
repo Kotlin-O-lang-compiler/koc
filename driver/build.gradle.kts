@@ -8,6 +8,8 @@ plugins {
 }
 
 dependencies {
+    implementation(libs.clikt)
+
     implementation(project(":lex"))
     implementation(project(":utils"))
 }
