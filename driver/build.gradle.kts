@@ -8,7 +8,7 @@ plugins {
 }
 
 dependencies {
-    implementation("com.github.ajalt.clikt:clikt:4.3.0")
+    implementation(libs.clikt)
 
     implementation(project(":lex"))
     implementation(project(":utils"))

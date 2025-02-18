@@ -21,7 +21,7 @@ fun koc(
     }
 }
 
-fun koc(
+fun kocFromCode(
     programs: List<String>,
     diag: Diagnostics = Diagnostics(),
     options: KocOptions,
@@ -41,11 +41,11 @@ fun koc(
     options: KocOptions,
 ) = koc(listOf(program), diag, options)
 
-fun koc(
+fun kocFromCode(
     programCode: String,
     diag: Diagnostics = Diagnostics(),
     options: KocOptions,
-) = koc(listOf(programCode), diag, options)
+) = kocFromCode(listOf(programCode), diag, options)
 
 private fun dumpTokens(
     tokens: List<Token>,
