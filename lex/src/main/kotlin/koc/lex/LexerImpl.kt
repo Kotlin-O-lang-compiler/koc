@@ -3,8 +3,6 @@ package koc.lex
 import koc.utils.Diagnostics
 import koc.utils.Position
 import java.io.File
-import java.io.InputStream
-import java.util.LinkedList
 
 /**
  * Single-threaded lexer.
@@ -13,24 +11,26 @@ import java.util.LinkedList
 class LexerImpl(
     val diag: Diagnostics,
     val stopOnError: Boolean,
-    val separators: List<Char> = Lexer.DEFAULT_TOKEN_SEPARATORS
+    val separators: Set<Char> = Lexer.DEFAULT_TOKEN_SEPARATORS
 ) : Lexer, Iterator<Token> {
-    private var program: InputStream? = null
+    private var _reader: CharReader? = null
+    private lateinit var sourceName: String
+
     private var next: Token? = null
-    private var currentLine = 1u
-    private var currentColumn = 0u
     private val buffer = StringBuilder()
+
+    private val reader: CharReader get() = _reader!!
 
     override fun open(program: File) {
         checkNotOpened()
-        this.program = program.inputStream().buffered()
-        parseNextToken()
+        this._reader = CharReader(program.inputStream())
+        sourceName = program.name
     }
 
-    override fun open(program: String) {
+    override fun open(program: String, programName: String) {
         checkNotOpened()
-        this.program = program.byteInputStream().buffered()
-        parseNextToken()
+        this._reader = CharReader(program.byteInputStream())
+        sourceName = programName
     }
 
     override fun lex(): List<Token> {
@@ -43,148 +43,123 @@ class LexerImpl(
     }
 
     override fun close() {
-        program?.close()
-        program = null
+        _reader?.close()
+        _reader = null
     }
 
     override fun iterator(): Iterator<Token> = this
 
     override fun hasNext(): Boolean {
         checkOpened()
+        if (next == null && (!diag.hasErrors || !stopOnError)) parseNextToken()
         return next != null && (!diag.hasErrors || !stopOnError)
     }
 
-    private enum class SupposedToken {
-        IDENTIFIER, INTEGER, REAL, OTHER
+    private enum class LexerState {
+        NONE, IDENTIFIER, INTEGER, REAL, SPECIAL
     }
 
-    override fun next(): Token = parseNextToken()!!
+    override fun next(): Token {
+        if (next == null) throw NoSuchElementException()
+        val current = next!!
+        next = null
+        return current
+    }
 
-    private fun parseNextToken(): Token? {
-        checkOpened()
-        val nextToken = next
-        var guessToken: SupposedToken? = null
+    private fun parseTokenChars(): LexerState {
+        var state = LexerState.NONE
 
-        while (hasNextChar()) {
-            val char = nextChar()
-            if (char in separators) continue
-            returnChar(false)
-            break
-        }
-
-        val position = Position(currentLine, currentColumn)
-
-        while (hasNextChar()) {
-            val char = nextChar()
-
+        for (char in reader) {
             if (char in separators) break
             buffer.append(char)
 
             when {
-                guessToken == SupposedToken.IDENTIFIER && buffer.isIdentifier -> continue
-                guessToken == SupposedToken.INTEGER && buffer.isInteger -> continue
-                guessToken == SupposedToken.REAL && buffer.isReal -> continue
+                state == LexerState.IDENTIFIER && char.isIdentifier -> continue
+                state == LexerState.INTEGER && char.isInteger -> continue
+                state == LexerState.REAL && char.isInteger /* fractional part */ -> continue
 
-                guessToken == SupposedToken.INTEGER && buffer.isReal -> {
-                    guessToken = SupposedToken.REAL
+                state == LexerState.INTEGER && buffer[buffer.length - 2].isInteger && char == '.' -> {
+                    state = LexerState.REAL
                     continue
                 }
 
-                guessToken == SupposedToken.IDENTIFIER
-                    || guessToken == SupposedToken.INTEGER
-                    || guessToken == SupposedToken.REAL -> {
-                        returnChar(true)
-                        break
+                state == LexerState.IDENTIFIER
+                    || state == LexerState.INTEGER
+                    || state == LexerState.REAL -> {
+                    reader.returnChar()
+                    buffer.deleteCharAt(buffer.length - 1)
+                    break
                 }
 
-                guessToken == null && buffer.isIdentifier -> guessToken = SupposedToken.IDENTIFIER
-                guessToken == null && buffer.isInteger -> guessToken = SupposedToken.INTEGER
-                guessToken == null && buffer.isReal -> guessToken = SupposedToken.REAL
-                guessToken == null -> guessToken = SupposedToken.OTHER
+                state == LexerState.NONE && char.isIdentifierStart -> state = LexerState.IDENTIFIER
+                state == LexerState.NONE && char.isIntegerStart -> state = LexerState.INTEGER
+                state == LexerState.NONE && char.isRealStart -> state = LexerState.REAL // Redundant branch due to integer rule equality
 
                 else -> {
-                    check(guessToken == SupposedToken.OTHER)
+                    check(state == LexerState.NONE || state == LexerState.SPECIAL)
+
+                    // Looks like it's not frequent call for valid programs
                     if (buffer.toString() !in TokenKind.asValues) {
-                        returnChar(true)
+                        reader.returnChar()
+                        buffer.deleteCharAt(buffer.length - 1)
+
                         break
                     }
+                    state = LexerState.SPECIAL
                     continue
                 }
 
             }
         }
+        return state
+    }
+
+    private fun parseNextToken() {
+        checkOpened()
+        reader.skip(separators)
+
+        val position = Position(reader.currentLine, reader.currentColumn, sourceName)
+
+        val state = parseTokenChars()
 
         when {
             buffer.isEmpty() -> {
                 next = null
             }
-            buffer.toString() in TokenKind.asValues -> {
+            (state == LexerState.IDENTIFIER || state == LexerState.SPECIAL) && buffer.toString() in TokenKind.asValues -> {
                 val kind = TokenKind.fromValue(buffer.toString())
                 next = kind.toTokenClass().constructors.first().call(position)
             }
-            buffer.isIdentifier -> next = Token.IDENTIFIER(buffer.toString(), position)
-            buffer.isInteger -> {
+            state == LexerState.IDENTIFIER -> next = Token.IDENTIFIER(buffer.toString(), position)
+            state == LexerState.INTEGER -> {
                 val absolute = buffer.toString().toBigDecimalOrNull()
                 if (absolute == null || absolute > Token.INT_LITERAL.MAX.toBigDecimal() || absolute < Token.INT_LITERAL.MIN.toBigDecimal()) {
-                    if (absolute == null) diag.error(UnexpectedTokenException(position, buffer.toString(), expected = listOf(TokenKind.INT_LITERAL)))
-                    else diag.error(IntegerLiteralOutOfRangeException(position, buffer.toString()))
+                    if (absolute == null) diag.error(UnexpectedTokenException(buffer.toString(), expected = listOf(TokenKind.INT_LITERAL)), position)
+                    else diag.error(IntegerLiteralOutOfRangeException(position, buffer.toString()), position)
                     next = Token.INVALID(buffer.toString(), position)
                 } else {
                     next = Token.INT_LITERAL(absolute.toLong(), position)
                 }
             }
-            buffer.isReal -> {
+            state == LexerState.REAL -> {
                 val absolute = buffer.toString().toDouble()
                 next = Token.REAL_LITERAL(absolute, position)
             }
 
             else -> {
-                diag.error(UnexpectedTokenException(position, buffer.toString()))
+                diag.error(UnexpectedTokenException(buffer.toString()), position)
                 next = Token.INVALID(buffer.toString(), position)
             }
         }
 
         buffer.clear()
-        return nextToken
-    }
-
-    private val _chars = LinkedList<Char>()
-    private var _currentChar: Char? = null
-    private var _prevColumn = 0u // remember column in case of backtracking on lines
-
-    private fun hasNextChar() = _chars.isNotEmpty() || program?.available() != 0
-
-    private fun nextChar(): Char {
-        _currentChar = if (_chars.isEmpty()) program!!.read().toChar()
-        else _chars.removeFirst()
-
-        if (_currentChar == '\n') {
-            currentLine++
-            _prevColumn = currentColumn
-            currentColumn = 1u
-        } else {
-            currentColumn++
-        }
-
-        return _currentChar!!
-    }
-
-    private fun returnChar(removeFromBuffer: Boolean) {
-        _currentChar?.let {
-            if (removeFromBuffer) buffer.deleteCharAt(buffer.length - 1)
-            _chars.addFirst(it)
-            if (it == '\n') {
-                currentColumn = _prevColumn
-                currentLine--
-            }
-        }
     }
 
     private fun checkNotOpened() {
-        require(program == null)
+        require(_reader == null)
     }
 
     private fun checkOpened() {
-        require(program != null)
+        require(_reader != null)
     }
 }

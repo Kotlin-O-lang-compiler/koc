@@ -15,9 +15,10 @@ fun lex(
 
 fun lex(
     source: String,
+    sourceName: String = "program",
     diag: Diagnostics = Diagnostics(),
     options: KocOptions,
-): List<Token> = lex(diag, options) { open(source) }
+): List<Token> = lex(diag, options) { open(source, sourceName) }
 
 private fun lex(
     diag: Diagnostics,

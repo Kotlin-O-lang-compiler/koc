@@ -11,7 +11,7 @@ sealed class Token(open val value: String, val kind: TokenKind) {
     }
     abstract val start: Position
     
-    val end: Position get() = Position(start.line, start.column + value.length.toUInt())
+    val end: Position get() = Position(start.line, start.column + value.length.toUInt(), start.filename)
 
     data class CLASS(override val start: Position): Token(TokenKind.CLASS)
     data class EXTENDS(override val start: Position): Token(TokenKind.EXTENDS)

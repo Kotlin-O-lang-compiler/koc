@@ -27,9 +27,10 @@ fun kocFromCode(
     options: KocOptions,
 ) {
     programs.forEachIndexed { idx, program ->
-        val tokens = lex(program, diag, options)
+        val programName = "program-$idx"
+        val tokens = lex(program, programName, diag, options)
 
-        dumpTokens(tokens, "program-$idx", options)
+        dumpTokens(tokens, programName, options)
 
         // TODO("Parser is not implemented yet")
     }

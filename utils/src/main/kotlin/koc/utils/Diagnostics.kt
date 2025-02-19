@@ -3,11 +3,16 @@ package koc.utils
 class Diagnostics {
     private val errors = mutableListOf<CompileException>()
 
-    val hasErrors get() = errors.isNotEmpty()// || dumpedErrors.isNotEmpty()
+    val hasErrors get() = errors.isNotEmpty()
 
-    fun error(error: CompileException) {
+    fun error(error: CompileException, position: Position) {
         errors.add(error)
-        System.err.println(error)
+        printError(error, position)
+    }
+
+    private fun printError(error: CompileException, position: Position) {
+        System.err.println("error: $error")
+        System.err.println(">>> ${position.toVerboseString()}")
     }
 
     fun clear() {
