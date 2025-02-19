@@ -51,45 +51,41 @@ enum class TokenKind(val value: String) {
         }
 
     fun toTokenClass() = when (this) {
-        CLASS -> Token.CLASS::class
-        EXTENDS -> Token.EXTENDS::class
-        IS -> Token.IS::class
-        END -> Token.END::class
-        VAR -> Token.VAR::class
-        METHOD -> Token.METHOD::class
-        THIS -> Token.THIS::class
-        WHILE -> Token.WHILE::class
-        LOOP -> Token.LOOP::class
-        IF -> Token.IF::class
-        THEN -> Token.THEN::class
-        ELSE -> Token.ELSE::class
-        RETURN -> Token.RETURN::class
+        CLASS -> Token.Keyword::class
+        EXTENDS -> Token.Keyword::class
+        IS -> Token.Keyword::class
+        END -> Token.Keyword::class
+        VAR -> Token.Keyword::class
+        METHOD -> Token.Keyword::class
+        THIS -> Token.Keyword::class
+        WHILE -> Token.Keyword::class
+        LOOP -> Token.Keyword::class
+        IF -> Token.Keyword::class
+        THEN -> Token.Keyword::class
+        ELSE -> Token.Keyword::class
+        RETURN -> Token.Keyword::class
 
-        DOT -> Token.DOT::class
-        COMMA -> Token.COMMA::class
-        COLON -> Token.COLON::class
-        ASSIGN -> Token.ASSIGN::class
-        WIDE_ARROW -> Token.WIDE_ARROW::class
-        LPAREN -> Token.LPAREN::class
-        RPAREN -> Token.RPAREN::class
-        LSQUARE -> Token.LSQUARE::class
-        RSQUARE -> Token.RSQUARE::class
-        COMMENT -> Token.COMMENT::class
+        DOT -> Token.Special::class
+        COMMA -> Token.Special::class
+        COLON -> Token.Special::class
+        ASSIGN -> Token.Special::class
+        WIDE_ARROW -> Token.Special::class
+        LPAREN -> Token.Special::class
+        RPAREN -> Token.Special::class
+        LSQUARE -> Token.Special::class
+        RSQUARE -> Token.Special::class
+        COMMENT -> Token.Special::class
 
-        TRUE -> Token.TRUE::class
-        FALSE -> Token.FALSE::class
+        TRUE -> Token.Keyword::class
+        FALSE -> Token.Keyword::class
 
-        IDENTIFIER -> Token.IDENTIFIER::class
-        INT_LITERAL -> Token.INT_LITERAL::class
-        REAL_LITERAL -> Token.REAL_LITERAL::class
-        INVALID -> Token.INVALID::class
+        IDENTIFIER -> Token.Identifier::class
+        INT_LITERAL -> Token.IntLiteral::class
+        REAL_LITERAL -> Token.RealLiteral::class
+        INVALID -> Token.Invalid::class
     }
 
     companion object {
-        val specials = listOf(
-            LPAREN, RPAREN, LSQUARE, RSQUARE, ASSIGN, WIDE_ARROW, DOT, COMMA, COLON
-        )
-
         val asValues = entries.map { it.value }
 
         fun fromValue(value: String): TokenKind {

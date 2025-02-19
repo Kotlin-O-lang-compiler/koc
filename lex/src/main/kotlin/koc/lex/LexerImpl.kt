@@ -128,27 +128,27 @@ class LexerImpl(
             }
             (state == LexerState.IDENTIFIER || state == LexerState.SPECIAL) && buffer.toString() in TokenKind.asValues -> {
                 val kind = TokenKind.fromValue(buffer.toString())
-                next = kind.toTokenClass().constructors.first().call(position)
+                next = kind.toTokenClass().constructors.first().call(position, kind)
             }
-            state == LexerState.IDENTIFIER -> next = Token.IDENTIFIER(buffer.toString(), position)
+            state == LexerState.IDENTIFIER -> next = Token.Identifier(buffer.toString(), position)
             state == LexerState.INTEGER -> {
                 val absolute = buffer.toString().toBigDecimalOrNull()
-                if (absolute == null || absolute > Token.INT_LITERAL.MAX.toBigDecimal() || absolute < Token.INT_LITERAL.MIN.toBigDecimal()) {
+                if (absolute == null || absolute > Token.IntLiteral.MAX.toBigDecimal() || absolute < Token.IntLiteral.MIN.toBigDecimal()) {
                     if (absolute == null) diag.error(UnexpectedTokenException(buffer.toString(), expected = listOf(TokenKind.INT_LITERAL)), position)
                     else diag.error(IntegerLiteralOutOfRangeException(position, buffer.toString()), position)
-                    next = Token.INVALID(buffer.toString(), position)
+                    next = Token.Invalid(buffer.toString(), position)
                 } else {
-                    next = Token.INT_LITERAL(absolute.toLong(), position)
+                    next = Token.IntLiteral(absolute.toLong(), position)
                 }
             }
             state == LexerState.REAL -> {
                 val absolute = buffer.toString().toDouble()
-                next = Token.REAL_LITERAL(absolute, position)
+                next = Token.RealLiteral(absolute, position)
             }
 
             else -> {
                 diag.error(UnexpectedTokenException(buffer.toString()), position)
-                next = Token.INVALID(buffer.toString(), position)
+                next = Token.Invalid(buffer.toString(), position)
             }
         }
 
