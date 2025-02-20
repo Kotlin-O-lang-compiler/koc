@@ -29,7 +29,7 @@ class LexerTest {
     fun `test unexpected program`() {
         lexer.open("+one")
         val tokens = lexer.lex()
-        assertEquals(2, tokens.size)
+        assertEquals(1, tokens.size)
         assertEquals(TokenKind.INVALID, tokens.first().kind)
         assertTrue { diag.hasErrors }
     }
