@@ -140,7 +140,7 @@ class LexerTest {
             method test => 1
         """.trimIndent())
         val expectedTokens = listOf(
-            TokenKind.IDENTIFIER, TokenKind.IDENTIFIER, TokenKind.WIDE_ARROW, TokenKind.INT_LITERAL
+            TokenKind.METHOD, TokenKind.IDENTIFIER, TokenKind.WIDE_ARROW, TokenKind.INT_LITERAL
         )
 
         compareTokens(expectedTokens)
