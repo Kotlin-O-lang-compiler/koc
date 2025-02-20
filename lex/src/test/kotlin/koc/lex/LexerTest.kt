@@ -180,6 +180,26 @@ class LexerTest {
     }
 
     @Test
+    fun `test loop`() {
+        lexer.open("""
+            while i.LessEqual(a) loop
+                x := a.get(i)
+                a.set(i,x.Mult())
+            end
+        """.trimIndent())
+        val expectedTokens = listOf(
+            TokenKind.WHILE, TokenKind.IDENTIFIER, TokenKind.DOT, TokenKind.IDENTIFIER, TokenKind.LPAREN,
+            TokenKind.IDENTIFIER, TokenKind.RPAREN, TokenKind.LOOP, TokenKind.IDENTIFIER, TokenKind.ASSIGN,
+            TokenKind.IDENTIFIER, TokenKind.DOT,  TokenKind.IDENTIFIER, TokenKind.LPAREN, TokenKind.IDENTIFIER,
+            TokenKind.RPAREN, TokenKind.IDENTIFIER, TokenKind.DOT, TokenKind.IDENTIFIER, TokenKind.LPAREN,
+            TokenKind.IDENTIFIER, TokenKind.COMMA, TokenKind.IDENTIFIER, TokenKind.DOT, TokenKind.IDENTIFIER,
+            TokenKind.LPAREN, TokenKind.RPAREN, TokenKind.RPAREN, TokenKind.END
+        )
+
+        compareTokens(expectedTokens)
+    }
+
+    @Test
     fun `test fibonacci`() {
         lexer.open("""
             class Fibonaccer is
