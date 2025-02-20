@@ -62,7 +62,7 @@ class LexerImpl(
     override fun next(): Token {
         if (next == null) throw NoSuchElementException()
         val current = next!!
-        next = null
+        parseNextToken()
         return current
     }
 
@@ -76,7 +76,7 @@ class LexerImpl(
             when {
                 state == LexerState.IDENTIFIER && char.isIdentifier -> continue
                 state == LexerState.INTEGER && char.isInteger -> continue
-                state == LexerState.REAL && char.isInteger /* fractional part */ -> continue
+                state == LexerState.REAL && (char.isInteger || char == '.') /* fractional part */ -> continue
 
                 state == LexerState.INTEGER && buffer[buffer.length - 2].isInteger && char == '.' -> {
                     state = LexerState.REAL
@@ -142,8 +142,13 @@ class LexerImpl(
                 }
             }
             state == LexerState.REAL -> {
-                val absolute = buffer.toString().toDouble()
-                next = Token.RealLiteral(absolute, position)
+                val absolute = buffer.toString().toDoubleOrNull()
+                if (absolute == null) {
+                    diag.error(UnexpectedTokenException(buffer.toString(), listOf(TokenKind.REAL_LITERAL)), position)
+                    next = Token.Invalid(buffer.toString(), position)
+                } else {
+                    next = Token.RealLiteral(absolute, position)
+                }
             }
 
             else -> {
