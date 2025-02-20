@@ -19,5 +19,6 @@ plugins {
 include(":driver")
 include(":lex")
 include(":utils")
+include(":test")
 
 rootProject.name = "koc"
