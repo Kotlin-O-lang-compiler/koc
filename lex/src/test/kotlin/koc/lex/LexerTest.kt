@@ -8,8 +8,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class LexerTest {
-    val diag = Diagnostics()
-    val lexer = LexerImpl(diag, false)
+    private val diag = Diagnostics()
+    private val lexer = LexerImpl(diag, false)
 
     @BeforeEach
     fun initialize() {
@@ -100,6 +100,84 @@ class LexerTest {
         assertEquals(TokenKind.END, tokens[5].kind)
     }
 
+    @Test
+    fun `test invalid real`() {
+        lexer.open("""
+            4.21.3
+        """.trimIndent())
+        lexer.lex()
+
+        assertTrue(diag.hasErrors)
+    }
+
+    @Test
+    fun `test invalid identifier`() {
+        lexer.open("""
+            4variable := 6
+        """.trimIndent())
+        lexer.lex()
+
+        assertTrue(diag.hasErrors)
+    }
+
+    @Test
+    fun `test multiple arguments method`() {
+        lexer.open("""
+            method test(a: Integer, b: Integer)
+        """.trimIndent())
+        val expectedTokens = listOf(
+            TokenKind.METHOD, TokenKind.IDENTIFIER, TokenKind.LPAREN, TokenKind.IDENTIFIER, TokenKind.COLON,
+            TokenKind.IDENTIFIER, TokenKind.COMMA, TokenKind.IDENTIFIER, TokenKind.COLON, TokenKind.IDENTIFIER,
+            TokenKind.RPAREN
+        )
+
+        compareTokens(expectedTokens)
+    }
+
+    @Test
+    fun `test expression method body`() {
+        lexer.open("""
+            method test => 1
+        """.trimIndent())
+        val expectedTokens = listOf(
+            TokenKind.IDENTIFIER, TokenKind.IDENTIFIER, TokenKind.WIDE_ARROW, TokenKind.INT_LITERAL
+        )
+
+        compareTokens(expectedTokens)
+    }
+
+    @Test
+    fun `test assignment`() {
+        lexer.open("""
+            b := 3
+        """.trimIndent())
+        val expectedTokens = listOf(TokenKind.IDENTIFIER, TokenKind.ASSIGN, TokenKind.INT_LITERAL)
+
+        compareTokens(expectedTokens)
+    }
+
+    @Test
+    fun `test variable declaration`() {
+        lexer.open("""
+            var b : 3
+        """.trimIndent())
+        val expectedTokens = listOf(TokenKind.VAR, TokenKind.IDENTIFIER, TokenKind.COLON, TokenKind.INT_LITERAL)
+
+        compareTokens(expectedTokens)
+    }
+
+    @Test
+    fun `test generics`() {
+        lexer.open("""
+            class Array[T] extends AnyRef
+        """.trimIndent())
+        val expectedTokens = listOf(
+            TokenKind.CLASS, TokenKind.IDENTIFIER, TokenKind.LSQUARE, TokenKind.IDENTIFIER, TokenKind.RSQUARE,
+            TokenKind.EXTENDS, TokenKind.IDENTIFIER
+        )
+
+        compareTokens(expectedTokens)
+    }
 
     @Test
     fun `test fibonacci`() {
@@ -113,7 +191,30 @@ class LexerTest {
             	end
             end
         """.trimIndent())
+        val expectedTokens = listOf(
+            TokenKind.CLASS, TokenKind.IDENTIFIER, TokenKind.IS, TokenKind.METHOD, TokenKind.IDENTIFIER,
+            TokenKind.LPAREN, TokenKind.IDENTIFIER, TokenKind.COLON, TokenKind.IDENTIFIER, TokenKind.RPAREN,
+            TokenKind.COLON, TokenKind.IDENTIFIER, TokenKind.METHOD, TokenKind.IDENTIFIER, TokenKind.LPAREN,
+            TokenKind.IDENTIFIER, TokenKind.COLON, TokenKind.IDENTIFIER, TokenKind.RPAREN, TokenKind.COLON,
+            TokenKind.IDENTIFIER, TokenKind.IS, TokenKind.IF, TokenKind.IDENTIFIER, TokenKind.DOT, TokenKind.IDENTIFIER,
+            TokenKind.LPAREN, TokenKind.INT_LITERAL, TokenKind.RPAREN, TokenKind.THEN, TokenKind.RETURN,
+            TokenKind.INT_LITERAL, TokenKind.END, TokenKind.IF, TokenKind.IDENTIFIER, TokenKind.DOT,
+            TokenKind.IDENTIFIER, TokenKind.LPAREN, TokenKind.INT_LITERAL, TokenKind.RPAREN, TokenKind.THEN,
+            TokenKind.RETURN, TokenKind.INT_LITERAL, TokenKind.END, TokenKind.RETURN, TokenKind.IDENTIFIER,
+            TokenKind.LPAREN, TokenKind.IDENTIFIER, TokenKind.DOT, TokenKind.IDENTIFIER, TokenKind.LPAREN,
+            TokenKind.INT_LITERAL, TokenKind.RPAREN, TokenKind.RPAREN, TokenKind.DOT, TokenKind.IDENTIFIER,
+            TokenKind.LPAREN, TokenKind.IDENTIFIER, TokenKind.LPAREN, TokenKind.IDENTIFIER, TokenKind.DOT,
+            TokenKind.IDENTIFIER, TokenKind.LPAREN, TokenKind.INT_LITERAL, TokenKind.RPAREN, TokenKind.RPAREN,
+            TokenKind.RPAREN, TokenKind.END, TokenKind.END,
+        )
+
+        compareTokens(expectedTokens)
+    }
+
+    private fun compareTokens(expectedTokens: List<TokenKind>) {
         val tokens = lexer.lex()
-        assertFalse { diag.hasErrors }
+
+        assertFalse(diag.hasErrors)
+        assertEquals(expectedTokens, tokens.map { it.kind })
     }
 }
