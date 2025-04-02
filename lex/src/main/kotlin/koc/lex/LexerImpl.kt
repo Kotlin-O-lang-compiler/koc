@@ -11,7 +11,8 @@ import java.io.File
 class LexerImpl(
     val diag: Diagnostics,
     val stopOnError: Boolean,
-    val separators: Set<Char> = Lexer.DEFAULT_TOKEN_SEPARATORS
+    val separators: Set<Char> = Lexer.DEFAULT_TOKEN_SEPARATORS,
+    val newLines: Set<Char> = Lexer.NLs
 ) : Lexer, Iterator<Token> {
     private var _reader: CharReader? = null
     private lateinit var sourceName: String
@@ -120,6 +121,14 @@ class LexerImpl(
         return state
     }
 
+    private fun parseSingleLineComment() {
+        buffer.clear()
+        for (char in reader) {
+            if (char in newLines) break
+            buffer.append(char)
+        }
+    }
+
     private fun parseNextToken() {
         checkOpened()
         reader.skip(separators)
@@ -135,13 +144,17 @@ class LexerImpl(
 
             (state == LexerState.IDENTIFIER || state == LexerState.SPECIAL) && buffer.toString() in TokenKind.asValues -> {
                 val kind = TokenKind.fromValue(buffer.toString())
-                next = kind.toTokenClass().constructors.first().call(position, kind)
+                if (kind == TokenKind.COMMENT) {
+                    parseSingleLineComment()
+                    next = Token(buffer.toString(), kind, position)
+                } else {
+                    next = Token(kind, position)
+                }
             }
-
-            state == LexerState.IDENTIFIER -> next = Token.Identifier(buffer.toString(), position)
+            state == LexerState.IDENTIFIER -> next = Token(buffer.toString(), TokenKind.IDENTIFIER, position)
             state == LexerState.INTEGER -> {
                 val absolute = buffer.toString().toBigDecimalOrNull()
-                if (absolute == null || absolute > Token.IntLiteral.MAX.toBigDecimal() || absolute < Token.IntLiteral.MIN.toBigDecimal()) {
+                if (absolute == null || absolute > Token.INT_MAX.toBigDecimal() || absolute < Token.INT_MIN.toBigDecimal()) {
                     if (absolute == null) diag.error(
                         UnexpectedTokenException(
                             buffer.toString(),
@@ -149,9 +162,9 @@ class LexerImpl(
                         ), position
                     )
                     else diag.error(IntegerLiteralOutOfRangeException(position, buffer.toString()), position)
-                    next = Token.Invalid(buffer.toString(), position)
+                    next = Token(buffer.toString(), TokenKind.INVALID, position)
                 } else {
-                    next = Token.IntLiteral(absolute.toLong(), position)
+                    next = Token(absolute.toString(), TokenKind.INT_LITERAL, position)
                 }
             }
 
@@ -159,15 +172,15 @@ class LexerImpl(
                 val absolute = buffer.toString().toDoubleOrNull()
                 if (absolute == null) {
                     diag.error(UnexpectedTokenException(buffer.toString(), listOf(TokenKind.REAL_LITERAL)), position)
-                    next = Token.Invalid(buffer.toString(), position)
+                    next = Token(buffer.toString(), TokenKind.INVALID, position)
                 } else {
-                    next = Token.RealLiteral(absolute, position)
+                    next = Token(absolute.toString(), TokenKind.REAL_LITERAL, position)
                 }
             }
 
             else -> {
                 diag.error(UnexpectedTokenException(buffer.toString()), position)
-                next = Token.Invalid(buffer.toString(), position)
+                next = Token(buffer.toString(), TokenKind.INVALID, position)
             }
         }
 

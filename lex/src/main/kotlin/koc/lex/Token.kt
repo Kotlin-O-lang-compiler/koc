@@ -2,25 +2,14 @@ package koc.lex
 
 import koc.utils.Position
 
-sealed class Token(open val value: String, open val kind: TokenKind) {
+data class Token(val value: String, val kind: TokenKind, val start: Position) {
 
-    constructor(kind: TokenKind) : this(kind.value, kind)
-    abstract val start: Position
+    constructor(kind: TokenKind, start: Position) : this(kind.value, kind, start)
     
     val end: Position get() = Position(start.line, start.column + value.length.toUInt(), start.filename)
 
-    data class Keyword(override val start: Position, override val kind: TokenKind): Token(kind)
-    data class Identifier(override val value: String, override val start: Position): Token(TokenKind.IDENTIFIER)
-
-    data class IntLiteral(val absolute: Long, override val start: Position): Token(absolute.toString(), TokenKind.INT_LITERAL) {
-        companion object {
-            const val MIN = Long.MIN_VALUE
-            const val MAX = Long.MAX_VALUE
-        }
+    companion object {
+        const val INT_MIN = Long.MIN_VALUE
+        const val INT_MAX = Long.MAX_VALUE
     }
-    data class RealLiteral(val absolute: Double, override val start: Position): Token(absolute.toString(), TokenKind.REAL_LITERAL)
-
-    data class Special(override val start: Position, override val kind: TokenKind): Token(kind)
-
-    data class Invalid(override val value: String, override val start: Position): Token(value, TokenKind.INVALID)
 }

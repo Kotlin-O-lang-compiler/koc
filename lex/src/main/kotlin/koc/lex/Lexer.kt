@@ -11,6 +11,7 @@ interface Lexer : Iterable<Token>, AutoCloseable {
     fun lex(): List<Token>
 
     companion object {
-        val DEFAULT_TOKEN_SEPARATORS = setOf(' ', '\t', '\n', '\r')
+        val NLs = setOf('\n')
+        val DEFAULT_TOKEN_SEPARATORS = setOf(' ', '\t', '\r') + NLs
     }
 }
