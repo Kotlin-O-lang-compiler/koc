@@ -84,22 +84,24 @@ class LexerImpl(
                 }
 
                 state == LexerState.IDENTIFIER
-                    || state == LexerState.INTEGER
-                    || state == LexerState.REAL -> {
-                    reader.returnChar()
-                    buffer.deleteCharAt(buffer.length - 1)
-                    break
+                        || state == LexerState.INTEGER
+                        || state == LexerState.REAL -> {
+                            if (char.isIdentifier) continue
+                            reader.returnChar()
+                            buffer.deleteCharAt(buffer.length - 1)
+                            break
                 }
 
                 state == LexerState.NONE && char.isIdentifierStart -> state = LexerState.IDENTIFIER
                 state == LexerState.NONE && char.isIntegerStart -> state = LexerState.INTEGER
-                state == LexerState.NONE && char.isRealStart -> state = LexerState.REAL // Redundant branch due to integer rule equality
+                state == LexerState.NONE && char.isRealStart -> state =
+                    LexerState.REAL // Redundant branch due to integer rule equality
 
                 else -> {
                     check(state == LexerState.NONE || state == LexerState.SPECIAL)
 
                     // Looks like it's not frequent call for valid programs
-                    if (buffer.toString() !in TokenKind.asValues) {
+                    if (buffer.length > 1 && buffer.toString() !in TokenKind.asValues && buffer.subSequence(0..<buffer.lastIndex) in TokenKind.asValues) {
                         reader.returnChar()
                         buffer.deleteCharAt(buffer.length - 1)
 
@@ -110,6 +112,10 @@ class LexerImpl(
                 }
 
             }
+        }
+
+        if (state == LexerState.SPECIAL && buffer.toString() !in TokenKind.asValues) {
+            state = LexerState.NONE
         }
         return state
     }
@@ -126,21 +132,29 @@ class LexerImpl(
             buffer.isEmpty() -> {
                 next = null
             }
+
             (state == LexerState.IDENTIFIER || state == LexerState.SPECIAL) && buffer.toString() in TokenKind.asValues -> {
                 val kind = TokenKind.fromValue(buffer.toString())
                 next = kind.toTokenClass().constructors.first().call(position, kind)
             }
+
             state == LexerState.IDENTIFIER -> next = Token.Identifier(buffer.toString(), position)
             state == LexerState.INTEGER -> {
                 val absolute = buffer.toString().toBigDecimalOrNull()
                 if (absolute == null || absolute > Token.IntLiteral.MAX.toBigDecimal() || absolute < Token.IntLiteral.MIN.toBigDecimal()) {
-                    if (absolute == null) diag.error(UnexpectedTokenException(buffer.toString(), expected = listOf(TokenKind.INT_LITERAL)), position)
+                    if (absolute == null) diag.error(
+                        UnexpectedTokenException(
+                            buffer.toString(),
+                            expected = listOf(TokenKind.INT_LITERAL)
+                        ), position
+                    )
                     else diag.error(IntegerLiteralOutOfRangeException(position, buffer.toString()), position)
                     next = Token.Invalid(buffer.toString(), position)
                 } else {
                     next = Token.IntLiteral(absolute.toLong(), position)
                 }
             }
+
             state == LexerState.REAL -> {
                 val absolute = buffer.toString().toDoubleOrNull()
                 if (absolute == null) {
