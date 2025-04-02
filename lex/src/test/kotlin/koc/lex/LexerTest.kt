@@ -2,6 +2,8 @@ package koc.lex
 
 import koc.utils.Diagnostics
 import org.junit.jupiter.api.BeforeEach
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -36,8 +38,8 @@ class LexerTest {
 
     @Test
     fun `test single line comment`() {
-        val comment = "hello world"
-        lexer.open("//$comment")
+        val comment = "//hello world"
+        lexer.open(comment)
         val tokens = lexer.lex()
         assertEquals(1, tokens.size)
         assertEquals(TokenKind.COMMENT, tokens.first().kind)
@@ -47,8 +49,19 @@ class LexerTest {
 
     @Test
     fun `test single line comment lines`() {
-        val comment = "hello world"
-        lexer.open("//$comment\n\n")
+        val comment = "//hello world"
+        lexer.open("$comment\n\n")
+        val tokens = lexer.lex()
+        assertEquals(1, tokens.size)
+        assertEquals(TokenKind.COMMENT, tokens.first().kind)
+        assertEquals(comment, tokens.first().value)
+        assertFalse { diag.hasErrors }
+    }
+
+    @Test
+    fun `test single line comment in comment`() {
+        val comment = "// hello world // hello world"
+        lexer.open("$comment\n")
         val tokens = lexer.lex()
         assertEquals(1, tokens.size)
         assertEquals(TokenKind.COMMENT, tokens.first().kind)
@@ -58,8 +71,8 @@ class LexerTest {
 
     @Test
     fun `test single line comment wrapped`() {
-        val comment = "hello world"
-        lexer.open("class A is //$comment\n\nend")
+        val comment = "// hello world"
+        lexer.open("class A is $comment\n\nend")
         val tokens = lexer.lex()
         assertEquals(5, tokens.size)
         assertEquals(TokenKind.CLASS, tokens[0].kind)
@@ -69,6 +82,17 @@ class LexerTest {
         assertEquals(comment, tokens[3].value)
         assertEquals(TokenKind.END, tokens[4].kind)
         assertFalse { diag.hasErrors }
+
+        val dumpStream = ByteArrayOutputStream()
+        tokens.dump(PrintStream(dumpStream))
+        val dumpLines = dumpStream.toString().lines()
+
+        assertEquals(tokens.size, dumpLines.size)
+        assertEquals("Token(CLASS: `class`, program:1:1)", dumpLines[0])
+        assertEquals("Token(IDENTIFIER: `A`, program:1:7)", dumpLines[1])
+        assertEquals("Token(IS: `is`, program:1:9)", dumpLines[2])
+        assertEquals("Token(COMMENT: `// hello world`, program:1:12)", dumpLines[3])
+        assertEquals("Token(END: `end`, program:3:1)", dumpLines[4])
     }
 
     @Test
