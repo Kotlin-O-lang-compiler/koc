@@ -71,7 +71,10 @@ class LexerImpl(
         var state = LexerState.NONE
 
         for (char in reader) {
-            if (char in separators) break
+            if (char in separators) {
+                reader.returnChar()
+                break
+            }
             buffer.append(char)
 
             when {
@@ -101,11 +104,14 @@ class LexerImpl(
                 else -> {
                     check(state == LexerState.NONE || state == LexerState.SPECIAL)
 
+                    if (buffer.length == TokenKind.COMMENT.value.length && buffer.toString() == TokenKind.COMMENT.value) {
+                        return LexerState.SPECIAL
+                    }
+
                     // Looks like it's not frequent call for valid programs
                     if (buffer.length > 1 && buffer.toString() !in TokenKind.asValues && buffer.subSequence(0..<buffer.lastIndex) in TokenKind.asValues) {
                         reader.returnChar()
                         buffer.deleteCharAt(buffer.length - 1)
-
                         break
                     }
                     state = LexerState.SPECIAL
@@ -122,7 +128,6 @@ class LexerImpl(
     }
 
     private fun parseSingleLineComment() {
-        buffer.clear()
         for (char in reader) {
             if (char in newLines) break
             buffer.append(char)

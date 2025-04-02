@@ -76,21 +76,10 @@ internal val StringBuilder.isReal: Boolean
 
 
 fun Collection<Token>.dump(out: PrintStream = System.out) {
-    var line = 1u
-    var column = 1u
-
+    var first = true
     for (token in this) {
-        if (line < token.start.line) {
-            out.print("\n".repeat((token.start.line - line).toInt()))
-            column = 1u
-        }
-
-        if (column < token.start.column) {
-            out.print(" ".repeat((token.start.column - column).toInt()))
-        }
-
-        out.print("${token.kind}(${token.value})")
-        line = token.end.line
-        column = token.end.column
+        if (!first) out.println()
+        out.print(token.toString())
+        first = false
     }
 }

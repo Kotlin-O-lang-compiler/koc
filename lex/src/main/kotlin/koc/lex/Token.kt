@@ -12,4 +12,8 @@ data class Token(val value: String, val kind: TokenKind, val start: Position) {
         const val INT_MIN = Long.MIN_VALUE
         const val INT_MAX = Long.MAX_VALUE
     }
+
+    override fun toString(): String {
+        return "Token($kind: `$value`, ${start.toVerboseString()})"
+    }
 }
