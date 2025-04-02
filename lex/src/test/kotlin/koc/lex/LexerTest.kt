@@ -35,6 +35,43 @@ class LexerTest {
     }
 
     @Test
+    fun `test single line comment`() {
+        val comment = "hello world"
+        lexer.open("//$comment")
+        val tokens = lexer.lex()
+        assertEquals(1, tokens.size)
+        assertEquals(TokenKind.COMMENT, tokens.first().kind)
+        assertEquals(comment, tokens.first().value)
+        assertFalse { diag.hasErrors }
+    }
+
+    @Test
+    fun `test single line comment lines`() {
+        val comment = "hello world"
+        lexer.open("//$comment\n\n")
+        val tokens = lexer.lex()
+        assertEquals(1, tokens.size)
+        assertEquals(TokenKind.COMMENT, tokens.first().kind)
+        assertEquals(comment, tokens.first().value)
+        assertFalse { diag.hasErrors }
+    }
+
+    @Test
+    fun `test single line comment wrapped`() {
+        val comment = "hello world"
+        lexer.open("class A is //$comment\n\nend")
+        val tokens = lexer.lex()
+        assertEquals(5, tokens.size)
+        assertEquals(TokenKind.CLASS, tokens[0].kind)
+        assertEquals(TokenKind.IDENTIFIER, tokens[1].kind)
+        assertEquals(TokenKind.IS, tokens[2].kind)
+        assertEquals(TokenKind.COMMENT, tokens[3].kind)
+        assertEquals(comment, tokens[3].value)
+        assertEquals(TokenKind.END, tokens[4].kind)
+        assertFalse { diag.hasErrors }
+    }
+
+    @Test
     fun `test class dummy`() {
         lexer.open("class A is end")
         val tokens = lexer.lex()
