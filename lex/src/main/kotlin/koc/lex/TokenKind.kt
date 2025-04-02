@@ -50,41 +50,6 @@ enum class TokenKind(val value: String) {
             else -> this.value
         }
 
-    fun toTokenClass() = when (this) {
-        CLASS -> Token.Keyword::class
-        EXTENDS -> Token.Keyword::class
-        IS -> Token.Keyword::class
-        END -> Token.Keyword::class
-        VAR -> Token.Keyword::class
-        METHOD -> Token.Keyword::class
-        THIS -> Token.Keyword::class
-        WHILE -> Token.Keyword::class
-        LOOP -> Token.Keyword::class
-        IF -> Token.Keyword::class
-        THEN -> Token.Keyword::class
-        ELSE -> Token.Keyword::class
-        RETURN -> Token.Keyword::class
-
-        DOT -> Token.Special::class
-        COMMA -> Token.Special::class
-        COLON -> Token.Special::class
-        ASSIGN -> Token.Special::class
-        WIDE_ARROW -> Token.Special::class
-        LPAREN -> Token.Special::class
-        RPAREN -> Token.Special::class
-        LSQUARE -> Token.Special::class
-        RSQUARE -> Token.Special::class
-        COMMENT -> Token.Special::class
-
-        TRUE -> Token.Keyword::class
-        FALSE -> Token.Keyword::class
-
-        IDENTIFIER -> Token.Identifier::class
-        INT_LITERAL -> Token.IntLiteral::class
-        REAL_LITERAL -> Token.RealLiteral::class
-        INVALID -> Token.Invalid::class
-    }
-
     companion object {
         val asValues = entries.map { it.value }
 
