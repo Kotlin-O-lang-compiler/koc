@@ -7,8 +7,8 @@ import koc.utils.Position
 
 private val fakeStdPos = Position(0u, 0u, "std")
 
-private class RootClassDecl : ClassDecl(
-    Token(TokenKind.CLASS, fakeStdPos),
-    Token("Class", TokenKind.IDENTIFIER, Position, fakeStdPos),
-) {
-}
+//private class RootClassDecl : ClassDecl(
+//    Token(TokenKind.CLASS, fakeStdPos),
+//    Token("Class", TokenKind.IDENTIFIER, Position, fakeStdPos),
+//) {
+//}

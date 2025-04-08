@@ -81,6 +81,45 @@ class FieldDecl(
         get() = varDecl.tokens
 }
 
+class ConstructorDecl(
+    val thisToken: Token,
+    val params: Params? = null,
+    val isToken: Token,
+    val body: Body,
+    val endToken: Token
+) : Node() {
+
+    override val tokens: List<Token> get() {
+        val res = ArrayList<Token>()
+        res += thisToken
+        params?.let { res += it.tokens }
+        res += isToken
+        res += body.tokens
+        res += endToken
+        return res
+    }
+}
+
+class MethodDecl(
+    val keyword: Token,
+    val identifierToken: Token,
+    val params: Params? = null,
+    val retTypeRef: ClassReference? = null,
+    val body: MethodBody? = null
+) : Node() {
+
+    override val tokens: List<Token>
+        get() {
+            val res = ArrayList<Token>()
+            res += keyword
+            res += identifierToken
+            params?.let { res += it.tokens }
+            retTypeRef?.let { res += it.tokens }
+            body?.let { res += it.tokens }
+            return res
+        }
+}
+
 class VarDecl(
     val keyword: Token,
     val identifierToken: Token,
@@ -103,4 +142,21 @@ class VarDecl(
 
     override val tokens: List<Token>
         get() = listOf(keyword, identifierToken, colonToken, *initializer.tokens.toTypedArray())
+}
+
+class Param(
+    val identifierToken: Token,
+    val colonToken: Token,
+    val typeRef: ClassReference,
+    val commaToken: Token? = null
+) : Node() {
+    val identifier: Identifier = Identifier(identifierToken.value)
+
+    override val tokens: List<Token>
+        get() {
+            val res = arrayListOf(identifierToken, colonToken)
+            res += typeRef.tokens
+            commaToken?.let { res += it }
+            return res
+        }
 }

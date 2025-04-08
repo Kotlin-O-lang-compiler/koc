@@ -1,6 +1,7 @@
 package koc.parser.ast
 
 import koc.lex.Token
+import koc.parser.tokens
 import koc.utils.Position
 import java.util.EnumSet
 
@@ -37,6 +38,8 @@ class File(val filename: String) : Node() {
 
     val decls: List<ClassDecl> get() = _decls
 
+    override val tokens: List<Token> get() = decls.tokens
+
     override val start: Position get() = if (decls.isEmpty()) Position(1u, 1u, filename) else super.start
     override val end: Position get() = if (decls.isEmpty()) Position(1u, 1u, filename) else super.end
 }
@@ -68,13 +71,66 @@ class ClassReference(val identifierToken: Token) : Node(), Typed {
 
 }
 
-class ClassBody(
-    val beginToken: Token,
-    val endToken: Token
-) : Node() {
+class ClassBody() : Node() {
 
     private val _members = ArrayList<ClassMemberDecl>()
 
     val members: List<ClassMemberDecl> get() = _members
+
+    override val tokens: List<Token> get() = members.tokens
 }
 
+class Params(
+    val lparenToken: Token,
+    val rparenToken: Token,
+) : Node() {
+    private val _params = ArrayList<Param>()
+    val params: List<Param> get() = _params
+
+    operator fun plusAssign(param: Param) {
+        _params += param
+    }
+
+    override val tokens: List<Token>
+        get() {
+            val res = ArrayList<Token>()
+            res += lparenToken
+            res += params.tokens
+            res += rparenToken
+            return res
+        }
+}
+
+sealed class MethodBody(open val node: Node): Node() {
+    class MBody(val body: Body) : MethodBody(body) {
+        override val node: Body
+            get() = body
+
+        override val tokens: List<Token>
+            get() = body.tokens
+    }
+
+    class MExpr(val expr: Expr) : MethodBody(expr) {
+        override val node: Expr
+            get() = expr
+
+        override val tokens: List<Token>
+            get() = expr.tokens
+    }
+}
+
+class Body() : Node() {
+    val _nodes = ArrayList<Node>()
+    val nodes: List<Node> get() = _nodes
+
+    operator fun plusAssign(varDecl: VarDecl) {
+        _nodes += varDecl
+    }
+
+    operator fun plusAssign(statement: Statement) {
+        _nodes += statement
+    }
+
+    override val tokens: List<Token>
+        get() = nodes.tokens
+}
