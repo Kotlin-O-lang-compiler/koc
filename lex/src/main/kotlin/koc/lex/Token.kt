@@ -8,6 +8,8 @@ data class Token(val value: String, val kind: TokenKind, val start: Position) {
     
     val end: Position get() = Position(start.line, start.column + length.toUInt() - 1u, start.filename)
 
+    val isValid: Boolean get() = kind != TokenKind.INVALID
+
     val length: Int get() = value.length
 
     companion object {

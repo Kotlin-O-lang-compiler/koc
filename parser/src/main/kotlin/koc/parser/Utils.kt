@@ -4,13 +4,14 @@ import koc.lex.Token
 import koc.parser.ast.Node
 import koc.utils.Position
 
-val List<Node>.tokens: List<Token> get() {
-    val res = arrayListOf<Token>()
-    for (node in this) {
-        res += node.tokens
+val List<Node>.tokens: List<Token>
+    get() {
+        val res = arrayListOf<Token>()
+        for (node in this) {
+            res += node.tokens
+        }
+        return res
     }
-    return res
-}
 
 private const val UNDERLINE_CHAR = "~"
 
@@ -18,19 +19,26 @@ private const val UNDERLINE_CHAR = "~"
 fun formatAsBadToken(bad: Token, tokens: List<Token>, message: String? = null): String {
     val res = StringBuilder()
 
-    if (tokens.isEmpty() || tokens.size == 1) {
-        res.append("${bad.start.line} | ")
-        val lineIdent = bad.start.line.toString().length + 3
-        val ident = " ".repeat(bad.start.column.toInt() - 1)
-        res.append(ident)
-        res.appendLine(bad.value)
-        res.append(ident).append(" ".repeat(lineIdent))
-        res.appendLine(UNDERLINE_CHAR.repeat(bad.length))
+    if (tokens.isEmpty()) {
         message?.let { msg ->
-            res.appendLine(msg)
+            res.append(msg)
         }
         return res.toString()
     }
+
+//    if (tokens.isEmpty() || tokens.size == 1) {
+//        res.append("${bad.start.line} | ")
+//        val lineIdent = bad.start.line.toString().length + 3
+//        val ident = " ".repeat(bad.start.column.toInt() - 1)
+//        res.append(ident)
+//        res.appendLine(bad.value)
+//        res.append(ident).append(" ".repeat(lineIdent))
+//        res.appendLine(UNDERLINE_CHAR.repeat(bad.length))
+//        message?.let { msg ->
+//            res.appendLine(msg)
+//        }
+//        return res.toString()
+//    }
 
     val linNoWidth = tokens.last().end.line.toString().length
     val lineIdent = " ".repeat(linNoWidth + 3)
@@ -93,4 +101,16 @@ fun formatAsBadToken(bad: Token, tokens: List<Token>, message: String? = null): 
     return res.toString()
 }
 
-val List<Token>.nextPosition: Position get() = if (this.isEmpty()) Position(1u, 1u, "") else last().end.copy(column = last().end.column + 2u)
+fun Position?.next(file: String = "file"): Position {
+    return this?.let {
+        it.copy(column = it.column + 1u)
+    } ?: Position(1u, 1u, file)
+}
+
+
+val List<Token>.nextPosition: Position
+    get() = if (this.isEmpty()) Position(
+        1u,
+        1u,
+        ""
+    ) else last().end.copy(column = last().end.column + 2u)

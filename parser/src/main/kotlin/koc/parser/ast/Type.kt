@@ -9,13 +9,13 @@ interface Typed {
 }
 
 sealed class Type() : Attributed {
-    init {
-        enable(Attribute.AFTER_TYPE_CHECK)
-    }
-
     private val _attrs: MutableSet<Attribute> = EnumSet.noneOf(Attribute::class.java)
 
     final override val attrs: Set<Attribute> = _attrs
+
+    init {
+        enable(Attribute.AFTER_TYPE_CHECK)
+    }
 
     final override fun enable(attr: Attribute) {
         _attrs += attr
@@ -25,6 +25,8 @@ sealed class Type() : Attributed {
         _attrs -= attr
     }
 }
+
+class InvalidType() : Type()
 
 /**
  * @param superType: the root class is `Class` that does not have `superType`, other classes does.

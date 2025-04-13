@@ -2,5 +2,6 @@ package koc.parser.ast
 
 enum class Attribute {
     BROKEN,
-    AFTER_TYPE_CHECK
+    AFTER_TYPE_CHECK,
+    CONSTRUCTOR_CALL
 }

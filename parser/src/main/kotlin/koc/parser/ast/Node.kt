@@ -5,23 +5,31 @@ import koc.parser.tokens
 import koc.utils.Position
 import java.util.EnumSet
 
-sealed class Node {
-//    constructor(position: Position) : this(position, position)
-
+sealed class Node : Attributed {
     open val start: Position get() = tokens.first().start
     open val end: Position get() = tokens.last().start
 
     private val _attributes: MutableSet<Attribute> = EnumSet.noneOf(Attribute::class.java)
-    val attrs: Set<Attribute> get() = _attributes
+    override val attrs: Set<Attribute> get() = _attributes
 
-    val isBroken: Boolean = Attribute.BROKEN in attrs
-    val afterSema: Boolean = Attribute.AFTER_TYPE_CHECK in attrs
+    val isBroken: Boolean get() = Attribute.BROKEN in attrs || hasInvalidToken
+    val afterSema: Boolean get() = Attribute.AFTER_TYPE_CHECK in attrs
 
-    fun enable(attr: Attribute) {
+    private val hasInvalidToken by lazy {
+        tokens.any { !it.isValid }
+    }
+
+    protected fun validityCheck() {
+        if (hasInvalidToken) {
+            enable(Attribute.BROKEN)
+        }
+    }
+
+    override fun enable(attr: Attribute) {
         _attributes += attr
     }
 
-    fun disable(attr: Attribute) {
+    override fun disable(attr: Attribute) {
         _attributes -= attr
     }
 
@@ -47,28 +55,24 @@ class File(val filename: String) : Node() {
 @JvmInline
 value class Identifier(val value: String)
 
-class ClassReference(val identifierToken: Token) : Node(), Typed {
-    val identifier: Identifier get() = Identifier(identifierToken.value)
+class GenericParams(
+    val lsquare: Token,
+    val rsquare: Token
+) : Node() {
+    private val _types = arrayListOf<TypeParam>()
 
-    private var _type: ClassType? = null
+    val types: List<TypeParam> get() = _types
 
-    /**
-     * Type of reference destination
-     */
-    override val type: ClassType
-        get() {
-            ensureAfterSema()
-            return _type!!
-        }
-
-    override val tokens: List<Token>
-        get() = listOf(identifierToken)
-
-    override fun specifyType(type: Type) {
-        require(type is ClassType)
-        _type = type
+    operator fun plusAssign(type: TypeParam) {
+        _types += type
     }
 
+    operator fun plusAssign(type: Collection<TypeParam>) {
+        _types += type
+    }
+
+    override val tokens: List<Token>
+        get() = listOf(lsquare) + types.tokens + rsquare
 }
 
 class ClassBody() : Node() {
@@ -134,3 +138,26 @@ class Body() : Node() {
     override val tokens: List<Token>
         get() = nodes.tokens
 }
+
+//class RefType(
+//    val identifierToken: Token,
+//    val genericParams: GenericParams? = null
+//) : Node(), Typed {
+//    override val tokens: List<Token>
+//        get() = listOf(identifierToken) + (genericParams?.tokens ?: emptyList())
+//
+//    private var _type: ClassType? = null
+//
+//    override val type: Type
+//        get() {
+//            ensureAfterSema()
+//            return _type!!
+//        }
+//
+//    val identifier: Identifier get() = Identifier(identifierToken.value)
+//
+//    override fun specifyType(type: Type) {
+//        require(type is ClassType)
+//        _type = type
+//    }
+//}

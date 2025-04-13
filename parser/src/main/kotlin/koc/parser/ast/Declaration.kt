@@ -1,15 +1,15 @@
 package koc.parser.ast
 
 import koc.lex.Token
-import koc.utils.Position
 
 sealed class Decl() : Node(), Typed
 
 class ClassDecl(
     val classToken: Token,
     val identifierToken: Token,
+    val generics: GenericParams? = null,
     val extendsToken: Token? = null,
-    val superTypeRef: ClassReference? = null,
+    val superTypeRef: RefExpr? = null,
     val body: ClassBody,
 ) : Decl() {
 
@@ -20,6 +20,8 @@ class ClassDecl(
     }
 
     val identifier: Identifier get() = Identifier(identifierToken.value)
+
+    val ref: RefExpr get() = RefExpr(identifierToken, generics)
 
     val hasExplicitSuperType: Boolean get() = extendsToken != null
 
@@ -104,7 +106,7 @@ class MethodDecl(
     val keyword: Token,
     val identifierToken: Token,
     val params: Params? = null,
-    val retTypeRef: ClassReference? = null,
+    val retTypeRef: RefExpr? = null,
     val body: MethodBody? = null
 ) : Node() {
 
@@ -122,8 +124,8 @@ class MethodDecl(
 
 class VarDecl(
     val keyword: Token,
-    val identifierToken: Token,
-    val colonToken: Token,
+    val identifierToken: Token = Token.invalid,
+    val colonToken: Token = Token.invalid,
     val initializer: Expr
 ) : Decl() {
 
@@ -147,7 +149,7 @@ class VarDecl(
 class Param(
     val identifierToken: Token,
     val colonToken: Token,
-    val typeRef: ClassReference,
+    val typeRef: RefExpr,
     val commaToken: Token? = null
 ) : Node() {
     val identifier: Identifier = Identifier(identifierToken.value)
@@ -155,6 +157,19 @@ class Param(
     override val tokens: List<Token>
         get() {
             val res = arrayListOf(identifierToken, colonToken)
+            res += typeRef.tokens
+            commaToken?.let { res += it }
+            return res
+        }
+}
+
+class TypeParam(
+    val typeRef: RefExpr,
+    val commaToken: Token? = null
+) : Node() {
+    override val tokens: List<Token>
+        get() {
+            val res = arrayListOf<Token>()
             res += typeRef.tokens
             commaToken?.let { res += it }
             return res
