@@ -75,13 +75,21 @@ class GenericParams(
         get() = listOf(lsquare) + types.tokens + rsquare
 }
 
-class ClassBody() : Node() {
+class ClassBody(val isToken: Token, val endToken: Token) : Node() {
 
     private val _members = ArrayList<ClassMemberDecl>()
 
     val members: List<ClassMemberDecl> get() = _members
 
-    override val tokens: List<Token> get() = members.tokens
+    operator fun plusAssign(decl: ClassMemberDecl) {
+        _members += decl
+    }
+
+    operator fun plusAssign(decl: Collection<ClassMemberDecl>) {
+        _members += decl
+    }
+
+    override val tokens: List<Token> get() = listOf(isToken) + members.tokens + endToken
 }
 
 class Params(
@@ -93,6 +101,10 @@ class Params(
 
     operator fun plusAssign(param: Param) {
         _params += param
+    }
+
+    operator fun plusAssign(params: Collection<Param>) {
+        _params += params
     }
 
     override val tokens: List<Token>
@@ -123,7 +135,7 @@ sealed class MethodBody(open val node: Node): Node() {
     }
 }
 
-class Body() : Node() {
+class Body(val isToken: Token? = null, val endToken: Token) : Node() {
     val _nodes = ArrayList<Node>()
     val nodes: List<Node> get() = _nodes
 
@@ -136,7 +148,7 @@ class Body() : Node() {
     }
 
     override val tokens: List<Token>
-        get() = nodes.tokens
+        get() = (isToken?.let { listOf(isToken) } ?: listOf()) + nodes.tokens + endToken
 }
 
 //class RefType(

@@ -4,7 +4,7 @@ import koc.lex.Token
 
 sealed class Decl() : Node(), Typed
 
-class ClassDecl(
+data class ClassDecl(
     val classToken: Token,
     val identifierToken: Token,
     val generics: GenericParams? = null,
@@ -16,6 +16,10 @@ class ClassDecl(
     init {
         require(extendsToken != null && superTypeRef != null || extendsToken == null && superTypeRef == null) {
             "Both `extendsToken` and `superTypeRef` could be non-null simultaneously"
+        }
+
+        for (member in body.members) {
+            if (!member.hasOuterDecl) member.initOuterDecl(this)
         }
     }
 
@@ -58,14 +62,22 @@ class ClassDecl(
 }
 
 sealed class ClassMemberDecl() : Decl() {
-    abstract val outerDecl: ClassDecl
+    open val outerDecl: ClassDecl
+        get() = _outerDecl ?: throw IllegalStateException("Class declaration was not set")
+
+    val hasOuterDecl: Boolean
+        get() = _outerDecl != null
+
+    private var _outerDecl: ClassDecl? = null
+
+    fun initOuterDecl(outerDecl: ClassDecl) {
+        _outerDecl = outerDecl
+    }
 }
 
-class FieldDecl(
-    val varDecl: VarDecl,
-    override val outerDecl: ClassDecl
+data class FieldDecl(
+    val varDecl: VarDecl
 ) : ClassMemberDecl() {
-
     private var _type: FieldType? = null
 
     override val type: FieldType
@@ -83,13 +95,25 @@ class FieldDecl(
         get() = varDecl.tokens
 }
 
-class ConstructorDecl(
+data class ConstructorDecl(
     val thisToken: Token,
     val params: Params? = null,
     val isToken: Token,
     val body: Body,
     val endToken: Token
-) : Node() {
+) : ClassMemberDecl() {
+    private var _type: ConstructorType? = null
+
+    override val type: ConstructorType
+        get() {
+            ensureAfterSema()
+            return _type!!
+        }
+
+    override fun specifyType(type: Type) {
+        require(type is ConstructorType)
+        _type = type
+    }
 
     override val tokens: List<Token> get() {
         val res = ArrayList<Token>()
@@ -102,13 +126,26 @@ class ConstructorDecl(
     }
 }
 
-class MethodDecl(
+data class MethodDecl(
     val keyword: Token,
     val identifierToken: Token,
     val params: Params? = null,
+    val colon: Token? = null,
     val retTypeRef: RefExpr? = null,
     val body: MethodBody? = null
-) : Node() {
+) : ClassMemberDecl() {
+    private var _type: MethodType? = null
+
+    override val type: MethodType
+        get() {
+            ensureAfterSema()
+            return _type!!
+        }
+
+    override fun specifyType(type: Type) {
+        require(type is MethodType)
+        _type = type
+    }
 
     override val tokens: List<Token>
         get() {
@@ -116,13 +153,14 @@ class MethodDecl(
             res += keyword
             res += identifierToken
             params?.let { res += it.tokens }
+            colon?.let { res += it }
             retTypeRef?.let { res += it.tokens }
             body?.let { res += it.tokens }
             return res
         }
 }
 
-class VarDecl(
+data class VarDecl(
     val keyword: Token,
     val identifierToken: Token = Token.invalid,
     val colonToken: Token = Token.invalid,
@@ -146,10 +184,13 @@ class VarDecl(
         get() = listOf(keyword, identifierToken, colonToken, *initializer.tokens.toTypedArray())
 }
 
-class Param(
+data class Param(
     val identifierToken: Token,
     val colonToken: Token,
     val typeRef: RefExpr,
+    /**
+     * comma before the param
+     */
     val commaToken: Token? = null
 ) : Node() {
     val identifier: Identifier = Identifier(identifierToken.value)
@@ -163,7 +204,7 @@ class Param(
         }
 }
 
-class TypeParam(
+data class TypeParam(
     val typeRef: RefExpr,
     val commaToken: Token? = null
 ) : Node() {

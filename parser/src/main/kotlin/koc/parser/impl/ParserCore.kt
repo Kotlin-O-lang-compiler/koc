@@ -43,9 +43,10 @@ internal class ParserCore(private val diag: Diagnostics) {
         return res
     }
 
-    fun expect(tokenKind: TokenKind): Token {
+    fun expect(tokenKind: TokenKind, lookahead: Boolean = false): Token {
         if (isBad) return Token.invalid
         val nxt = next()
+        if (lookahead) previous()
         if (nxt == null) {
             isBad = true
             diag.error(LackOfTokenException(tokenKind, tokens), tokens.nextPosition)
@@ -59,10 +60,10 @@ internal class ParserCore(private val diag: Diagnostics) {
         return nxt
     }
 
-    fun expect(kinds: Collection<TokenKind>): Token {
+    fun expect(kinds: Collection<TokenKind>, lookahead: Boolean = false): Token {
         require(kinds.isNotEmpty())
         for (kind in kinds) {
-            if (next?.kind == kind) return expect(kind)
+            if (next?.kind == kind) return expect(kind, lookahead)
         }
         val nxt = next()
         if (nxt == null) {
@@ -79,6 +80,12 @@ internal class ParserCore(private val diag: Diagnostics) {
         val nxt = next
         nxt?.let { idx++ }
         return nxt
+    }
+
+    private fun previous() {
+        if (idx > 0) {
+            idx--
+        }
     }
 
     fun revive() {
@@ -103,6 +110,6 @@ internal class ParserCore(private val diag: Diagnostics) {
     data class ParseScope(val kind: ParseScopeKind, val value: String)
 
     enum class ParseScopeKind {
-        CLASS, CLASS_BODY, VAR, EXPR, METHOD, BODY, DEFAULT
+        CLASS, CLASS_BODY, VAR, EXPR, METHOD, BODY, DEFAULT, WHILE_BODY
     }
 }

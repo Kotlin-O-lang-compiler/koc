@@ -44,3 +44,11 @@ sealed class ClassMemberType(val outerDecl: ClassDecl) : Type()
 class FieldType(val varDecl: VarDecl, val classType: ClassType, outerDecl: ClassDecl) : ClassMemberType(outerDecl) {
 
 }
+
+class ConstructorType(val ctor: ConstructorDecl, outerDecl: ClassDecl) : ClassMemberType(outerDecl) {
+
+}
+
+class MethodType(val method: MethodDecl, outerDecl: ClassDecl) : ClassMemberType(outerDecl) {
+
+}
