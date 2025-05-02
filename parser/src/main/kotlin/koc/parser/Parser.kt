@@ -13,8 +13,8 @@ import koc.parser.ast.IntegerLiteral
 import koc.parser.ast.MethodDecl
 import koc.parser.ast.Node
 import koc.parser.ast.RealLiteral
+import koc.parser.ast.RefExpr
 import koc.parser.ast.ReturnNode
-import koc.parser.ast.ThisExpr
 import koc.parser.ast.VarDecl
 import koc.parser.ast.WhileNode
 
@@ -33,7 +33,7 @@ interface Parser {
     fun parseIntegerLiteral(tokens: List<Token>): IntegerLiteral
     fun parseRealLiteral(tokens: List<Token>): RealLiteral
     fun parseBooleanLiteral(tokens: List<Token>): BooleanLiteral
-    fun parseThisExpr(tokens: List<Token>): ThisExpr
+    fun parseRefExpr(tokens: List<Token>): RefExpr
 
     fun parseWhileLoop(tokens: List<Token>): WhileNode
     fun parseIfNode(tokens: List<Token>): IfNode

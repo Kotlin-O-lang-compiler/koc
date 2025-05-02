@@ -24,7 +24,7 @@ class InvalidExpr : Expr() {
     }
 }
 
-class RefExpr(val identifierToken: Token, val generics: GenericParams? = null) : Expr(), Typed {
+data class RefExpr(val identifierToken: Token, val generics: GenericParams? = null) : Expr(), Typed {
     val identifier: Identifier get() = Identifier(identifierToken.value)
 
     private var _type: ClassType? = null
@@ -37,6 +37,9 @@ class RefExpr(val identifierToken: Token, val generics: GenericParams? = null) :
             ensureAfterSema()
             return _type!!
         }
+
+    val isThis: Boolean
+        get() = identifierToken.kind == TokenKind.THIS
 
     override val tokens: List<Token>
         get() = listOf(identifierToken) + (generics?.tokens ?: listOf())
@@ -116,39 +119,31 @@ class BooleanLiteral(val token: Token) : Expr() {
     }
 }
 
-class ThisExpr(val token: Token) : Expr() {
-    override val tokens: List<Token> get() = listOf(token)
-
-    init {
-        validityCheck()
-    }
-
-    private var _type: ClassType? = null
-
-    override val type: ClassType
-        get() {
-            ensureAfterSema()
-            return _type!!
-        }
-
-    override fun specifyType(type: Type) {
-        require(type is ClassType)
-        _type = type
-    }
-}
-
 class CallExpr(
     val ref: RefExpr,
     val lparen: Token,
     val rparen: Token
 ) : Expr() {
 
-    private val _args = ArrayList<Expr>()
+    private val _args = ArrayList<Argument>()
 
-    val args: List<Expr> get() = _args
+    val args: List<Argument> get() = _args
 
     operator fun plusAssign(arg: Expr) {
+        _args += Argument(arg)
+    }
+
+    operator fun plusAssign(arg: Argument) {
         _args += arg
+    }
+
+    operator fun plusAssign(arg: Pair<Expr, Token>) {
+        val (expr, comma) = arg
+        _args += Argument(expr, comma)
+    }
+
+    operator fun plusAssign(args: List<Argument>) {
+        _args += args
     }
 
     val isConstructorCall: Boolean get() = Attribute.CONSTRUCTOR_CALL in attrs
@@ -172,6 +167,7 @@ class CallExpr(
 
 class MemberAccessExpr(
     val left: RefExpr,
+    val dot: Token,
     val member: Expr
 ) : Expr() {
     init {
@@ -181,7 +177,7 @@ class MemberAccessExpr(
     val isCall: Boolean get() = member is CallExpr || (member is MemberAccessExpr && member.isCall)
 
     override val tokens: List<Token>
-        get() = left.tokens + member.tokens
+        get() = left.tokens + dot + member.tokens
 
     private var _type: ClassType? = null
     override val type: Type

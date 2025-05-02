@@ -2,10 +2,12 @@ package koc.parser
 
 import koc.lex.Token
 import koc.lex.TokenKind
+import koc.parser.ast.CallExpr
 import koc.parser.ast.IntegerLiteral
 import koc.parser.ast.InvalidExpr
+import koc.parser.ast.MemberAccessExpr
 import koc.parser.ast.RealLiteral
-import koc.parser.ast.ThisExpr
+import koc.parser.ast.RefExpr
 import koc.parser.impl.ParserImpl
 import koc.utils.Diagnostics
 import koc.utils.Position
@@ -14,6 +16,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class TestParserExpr {
@@ -30,22 +34,22 @@ class TestParserExpr {
     fun `parse this`() {
         val token = Token(TokenKind.THIS, Position(1u, 1u, "test"))
         val tokens = listOf(token)
-        val expr1 = parser.parseThisExpr(tokens)
+        val expr1 = parser.parseRefExpr(tokens)
         assertFalse { diag.hasErrors }
-        assertEquals(token, expr1.token)
+        assertEquals(token, expr1.identifierToken)
         assertFalse { expr1.isBroken }
 
         val expr2 = parser.parseExpr(tokens)
         assertFalse { diag.hasErrors }
-        assertIs<ThisExpr>(expr2)
-        assertEquals(token, expr2.token)
+        assertIs<RefExpr>(expr2)
+        assertEquals(token, expr2.identifierToken)
         assertFalse { expr2.isBroken }
     }
 
     @Test
     fun `parse this empty`() {
         val tokens = listOf<Token>()
-        val expr1 = parser.parseThisExpr(tokens)
+        val expr1 = parser.parseRefExpr(tokens)
         assertTrue { diag.hasErrors }
         assertTrue { expr1.isBroken }
 
@@ -63,7 +67,7 @@ class TestParserExpr {
             Token(TokenKind.IS, Position(1u, 1u, "test")),
             Token(TokenKind.END, Position(1u, 4u, "test"))
         )
-        val expr1 = parser.parseThisExpr(tokens)
+        val expr1 = parser.parseRefExpr(tokens)
         assertTrue { diag.hasErrors }
         assertTrue { expr1.isBroken }
 
@@ -132,5 +136,65 @@ class TestParserExpr {
         val expr = parser.parseRealLiteral(tokens)
         assertTrue { diag.hasErrors }
         assertTrue { expr.isBroken }
+    }
+
+    @Test
+    fun `parse call without args`() {
+        val tokens = listOf(
+            Token("foo", TokenKind.IDENTIFIER, Position(1u, 1u, "test")),
+            Token(TokenKind.LPAREN, Position(1u, 5u, "test")),
+            Token(TokenKind.RPAREN, Position(1u, 6u, "test"))
+        )
+        val expr = parser.parseExpr(tokens)
+        assertIs<CallExpr>(expr)
+        assertFalse { diag.hasErrors }
+        assertFalse { expr.isBroken }
+        assertTrue { expr.args.isEmpty() }
+    }
+
+    @Test
+    fun `parse call with args`() {
+        val tokens = listOf(
+            Token("foo", TokenKind.IDENTIFIER, Position(1u, 1u, "test")),
+            Token(TokenKind.LPAREN, Position(1u, 5u, "test")),
+            Token("arg", TokenKind.IDENTIFIER, Position(1u, 6u, "test")),
+            Token(TokenKind.COMMA, Position(1u, 9u, "test")),
+            Token("5", TokenKind.INT_LITERAL, Position(1u, 11u, "test")),
+            Token(TokenKind.RPAREN, Position(1u, 13u, "test"))
+        )
+        val expr = parser.parseExpr(tokens)
+        assertIs<CallExpr>(expr)
+        assertFalse { diag.hasErrors }
+        assertFalse { expr.isBroken }
+        assertEquals(2, expr.args.size)
+        assertNull(expr.args[0].commaToken)
+        assertIs<RefExpr>(expr.args[0].expr)
+
+        assertNotNull(expr.args[1].commaToken)
+        assertIs<IntegerLiteral>(expr.args[1].expr)
+    }
+
+    @Test
+    fun `parse member call without args`() {
+        val tokens = listOf(
+            Token("obj", TokenKind.IDENTIFIER, Position(1u, 1u, "test")),
+            Token(TokenKind.DOT, Position(1u, 5u, "test")),
+            Token("foo", TokenKind.IDENTIFIER, Position(1u, 1u, "test")),
+            Token(TokenKind.LPAREN, Position(1u, 5u, "test")),
+            Token(TokenKind.RPAREN, Position(1u, 6u, "test"))
+        )
+        val access = parser.parseExpr(tokens)
+        assertFalse { diag.hasErrors }
+        assertFalse { access.isBroken }
+
+        assertIs<MemberAccessExpr>(access)
+        assertEquals(tokens.first(), access.left.identifierToken)
+        assertEquals(tokens[1], access.dot)
+
+        val call = access.member
+        assertIs<CallExpr>(call)
+        assertFalse { call.isBroken }
+
+        assertTrue { call.args.isEmpty() }
     }
 }

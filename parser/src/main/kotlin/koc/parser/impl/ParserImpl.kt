@@ -5,9 +5,13 @@ import koc.lex.TokenKind
 import koc.parser.ExpectedNodeException
 import koc.parser.LackOfNodeException
 import koc.parser.Parser
+import koc.parser.UnexpectedTokenException
+import koc.parser.ast.Argument
 import koc.parser.ast.Assignment
+import koc.parser.ast.Attribute
 import koc.parser.ast.Body
 import koc.parser.ast.BooleanLiteral
+import koc.parser.ast.CallExpr
 import koc.parser.ast.ClassBody
 import koc.parser.ast.ClassDecl
 import koc.parser.ast.ClassMemberDecl
@@ -18,6 +22,7 @@ import koc.parser.ast.GenericParams
 import koc.parser.ast.IfNode
 import koc.parser.ast.IntegerLiteral
 import koc.parser.ast.InvalidExpr
+import koc.parser.ast.MemberAccessExpr
 import koc.parser.ast.MethodBody
 import koc.parser.ast.MethodDecl
 import koc.parser.ast.Node
@@ -27,7 +32,6 @@ import koc.parser.ast.RealLiteral
 import koc.parser.ast.RefExpr
 import koc.parser.ast.ReturnNode
 import koc.parser.ast.Statement
-import koc.parser.ast.ThisExpr
 import koc.parser.ast.TypeParam
 import koc.parser.ast.VarDecl
 import koc.parser.ast.WhileNode
@@ -93,9 +97,9 @@ class ParserImpl(
         return parseBooleanLiteral()
     }
 
-    override fun parseThisExpr(tokens: List<Token>): ThisExpr {
+    override fun parseRefExpr(tokens: List<Token>): RefExpr {
         core.feed(tokens)
-        return parseThisExpr()
+        return parseRefExpr()
     }
 
     override fun parseWhileLoop(tokens: List<Token>): WhileNode {
@@ -306,6 +310,21 @@ class ParserImpl(
 
     private fun parseMethodBody(): Body = parseBody()
 
+    private fun parseArguments(): List<Argument> {
+        val args = arrayListOf<Argument>()
+
+        if (core.next?.kind != TokenKind.RPAREN) {
+            args += Argument(parseExpr())
+        }
+
+        while (core.next?.kind != TokenKind.RPAREN) {
+            val comma = core.expect(TokenKind.COMMA)
+            args += Argument(parseExpr(), comma)
+        }
+
+        return args
+    }
+
     private fun parseExpr(): Expr = with(core) {
         val nxt = next
             ?: return@with diag.error(LackOfNodeException("expression", currentTokens), core.current?.end.next())
@@ -315,7 +334,21 @@ class ParserImpl(
             TokenKind.REAL_LITERAL -> parseRealLiteral()
             TokenKind.TRUE -> parseBooleanLiteral()
             TokenKind.FALSE -> parseBooleanLiteral()
-            TokenKind.THIS -> parseThisExpr()
+            TokenKind.THIS, TokenKind.IDENTIFIER -> {
+                val ref = parseRefExpr()
+                if (next?.kind in listOf(TokenKind.DOT, TokenKind.LPAREN)) {
+                    val afterThis = expect(listOf(TokenKind.DOT, TokenKind.LPAREN))
+                    when (afterThis.kind) {
+                        TokenKind.DOT -> MemberAccessExpr(ref, afterThis, parseExpr())
+                        TokenKind.LPAREN -> {
+                            val args = parseArguments()
+                            val rparen = expect(TokenKind.RPAREN)
+                            CallExpr(ref, afterThis, rparen).apply { this += args }
+                        }
+                        else -> throw IllegalStateException("`(` or `.`")
+                    }
+                } else ref
+            }
 
             else -> diag.error(ExpectedNodeException("expression", nxt, currentTokens), nxt.start).let { InvalidExpr() }
         }
@@ -336,13 +369,8 @@ class ParserImpl(
         return BooleanLiteral(token)
     }
 
-    private fun parseThisExpr(): ThisExpr {
-        val token = core.expect(TokenKind.THIS)
-        return ThisExpr(token)
-    }
-
     private fun parseRefExpr(): RefExpr {
-        val identifier = core.expect(TokenKind.IDENTIFIER)
+        val identifier = core.expect(listOf(TokenKind.IDENTIFIER, TokenKind.THIS))
 
         if (core.next?.kind != TokenKind.LSQUARE) return RefExpr(identifier)
 
@@ -360,7 +388,12 @@ class ParserImpl(
         val rsquare = core.expect(TokenKind.RSQUARE)
 
         val generics = GenericParams(lsquare, rsquare).also { it += params }
-        return RefExpr(identifier, generics)
+        return RefExpr(identifier, generics).apply {
+            if (isThis) {
+                enable(Attribute.BROKEN)
+                diag.error(UnexpectedTokenException(lsquare, listOf(), tokens), lsquare.start)
+            }
+        }
     }
 
     private fun parseAssignment(): Assignment = with(core) {
@@ -418,7 +451,8 @@ class ParserImpl(
             TokenKind.INT_LITERAL,
             TokenKind.REAL_LITERAL,
             TokenKind.TRUE,
-            TokenKind.FALSE
+            TokenKind.FALSE,
+            TokenKind.THIS
         ) // TODO: extra tokens
     }
 

@@ -92,6 +92,9 @@ class ClassBody(val isToken: Token, val endToken: Token) : Node() {
     override val tokens: List<Token> get() = listOf(isToken) + members.tokens + endToken
 }
 
+/**
+ * Formal parameters
+ */
 class Params(
     val lparenToken: Token,
     val rparenToken: Token,
@@ -113,6 +116,22 @@ class Params(
             res += lparenToken
             res += params.tokens
             res += rparenToken
+            return res
+        }
+}
+
+data class Argument(
+    val expr: Expr,
+    /**
+     * comma before the param
+     */
+    val commaToken: Token? = null
+) : Node() {
+    override val tokens: List<Token>
+        get() {
+            val res = arrayListOf<Token>()
+            res += expr.tokens
+            commaToken?.let { res += it }
             return res
         }
 }
