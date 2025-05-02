@@ -8,8 +8,8 @@ abstract class LexException(message: String) : CompileException(message)
 class UnexpectedTokenException(val actual: String, val expected: List<TokenKind> = emptyList()) : LexException(
     "Unexpected token '$actual'" + when {
         expected.isEmpty() -> ""
-        expected.size == 1 -> ", probably you mean '${expected.first().diagValue}'"
-        else -> ", probably you mean " + expected.joinToString(", ") { "'${it.diagValue}'" }
+        expected.size == 1 -> ", probably you mean ${expected.first().diagValue}"
+        else -> ", probably you mean " + expected.joinToString(", ") { it.diagValue }
     }
 )
 

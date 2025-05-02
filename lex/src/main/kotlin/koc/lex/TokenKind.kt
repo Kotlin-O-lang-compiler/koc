@@ -47,7 +47,7 @@ enum class TokenKind(val value: String) {
             IDENTIFIER -> "identifier"
             INT_LITERAL -> "integer literal"
             REAL_LITERAL -> "real literal"
-            else -> this.value
+            else -> "'${this.value}'"
         }
 
     companion object {

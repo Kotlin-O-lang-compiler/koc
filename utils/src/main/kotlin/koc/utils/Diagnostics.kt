@@ -11,6 +11,8 @@ class Diagnostics {
     }
 
     private fun printError(error: CompileException, position: Position) {
+        if (hasErrors) System.err.println()
+
         System.err.println("error: $error")
         System.err.println(">>> ${position.toVerboseString()}")
     }
