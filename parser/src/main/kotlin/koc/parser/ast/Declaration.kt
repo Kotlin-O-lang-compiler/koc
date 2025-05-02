@@ -98,9 +98,7 @@ data class FieldDecl(
 data class ConstructorDecl(
     val thisToken: Token,
     val params: Params? = null,
-    val isToken: Token,
     val body: Body,
-    val endToken: Token
 ) : ClassMemberDecl() {
     private var _type: ConstructorType? = null
 
@@ -119,9 +117,7 @@ data class ConstructorDecl(
         val res = ArrayList<Token>()
         res += thisToken
         params?.let { res += it.tokens }
-        res += isToken
         res += body.tokens
-        res += endToken
         return res
     }
 }
@@ -135,6 +131,9 @@ data class MethodDecl(
     val body: MethodBody? = null
 ) : ClassMemberDecl() {
     private var _type: MethodType? = null
+
+    val isForwardDecl: Boolean
+        get() = body == null
 
     override val type: MethodType
         get() {

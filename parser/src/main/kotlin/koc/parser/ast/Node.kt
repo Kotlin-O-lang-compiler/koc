@@ -126,12 +126,12 @@ sealed class MethodBody(open val node: Node): Node() {
             get() = body.tokens
     }
 
-    class MExpr(val expr: Expr) : MethodBody(expr) {
+    class MExpr(val wideArrow: Token, val expr: Expr) : MethodBody(expr) {
         override val node: Expr
             get() = expr
 
         override val tokens: List<Token>
-            get() = expr.tokens
+            get() = listOf(wideArrow) + expr.tokens
     }
 }
 

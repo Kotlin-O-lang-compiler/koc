@@ -2,11 +2,14 @@ package koc.parser
 
 import koc.lex.Token
 import koc.lex.TokenKind
+import koc.parser.ast.BooleanLiteral
 import koc.parser.ast.FieldDecl
 import koc.parser.ast.IntegerLiteral
 import koc.parser.ast.InvalidExpr
+import koc.parser.ast.MethodBody
 import koc.parser.ast.MethodDecl
 import koc.parser.ast.RealLiteral
+import koc.parser.ast.VarDecl
 import koc.parser.impl.ParserImpl
 import koc.utils.Diagnostics
 import koc.utils.Position
@@ -15,6 +18,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class TestParserClass {
@@ -124,10 +129,10 @@ class TestParserClass {
     }
 
     @Test
-    fun `parse class with forward method decl easy`() {
+    fun `parse class with forward method decl min`() {
         val methodTokens = listOf(
             Token(TokenKind.METHOD, Position(2u, 1u, "test")),
-            Token("foo", TokenKind.IDENTIFIER, Position(2u, 7u, "test")),
+            Token("foo", TokenKind.IDENTIFIER, Position(2u, 8u, "test")),
 
         )
         val tokens = listOf(
@@ -153,6 +158,286 @@ class TestParserClass {
         assertEquals(classDecl, method.outerDecl)
         assertEquals(methodTokens[0], method.keyword)
         assertEquals(methodTokens[1], method.identifierToken)
+    }
+
+    @Test
+    fun `parse method forward decl min`() {
+        val tokens = listOf(
+            Token(TokenKind.METHOD, Position(2u, 1u, "test")),
+            Token("foo", TokenKind.IDENTIFIER, Position(2u, 8u, "test")),
+
+            )
+        val method = parser.parseMethod(tokens)
+        assertFalse { method.isBroken }
+        assertFalse { diag.hasErrors }
+
+        assertTrue { method.isForwardDecl }
+        assertEquals(tokens[0], method.keyword)
+        assertEquals(tokens[1], method.identifierToken)
+    }
+
+    @Test
+    fun `parse method forward decl with empty params`() {
+        val tokens = listOf(
+            Token(TokenKind.METHOD, Position(2u, 1u, "test")),
+            Token("foo", TokenKind.IDENTIFIER, Position(2u, 8u, "test")),
+            Token(TokenKind.LPAREN, Position(2u, 12u, "test")),
+            Token(TokenKind.RPAREN, Position(2u, 13u, "test")),
+            )
+        val method = parser.parseMethod(tokens)
+        assertFalse { method.isBroken }
+        assertFalse { diag.hasErrors }
+
+        assertTrue { method.isForwardDecl }
+        assertEquals(tokens[0], method.keyword)
+        assertEquals(tokens[1], method.identifierToken)
+        assertNotNull(method.params)
+        assertTrue { method.params!!.params.isEmpty() }
+    }
+
+    @Test
+    fun `parse method forward decl with ret type`() {
+        val tokens = listOf(
+            Token(TokenKind.METHOD, Position(2u, 1u, "test")),
+            Token("foo", TokenKind.IDENTIFIER, Position(2u, 8u, "test")),
+            Token(TokenKind.COLON, Position(2u, 12u, "test")),
+            Token("Integer", TokenKind.IDENTIFIER, Position(2u, 14u, "test")),
+        )
+        val method = parser.parseMethod(tokens)
+        assertFalse { method.isBroken }
+        assertFalse { diag.hasErrors }
+
+        assertTrue { method.isForwardDecl }
+        assertEquals(tokens[0], method.keyword)
+        assertEquals(tokens[1], method.identifierToken)
+        assertNull(method.params)
+        assertNotNull(method.colon)
+        assertNotNull(method.retTypeRef)
+        assertFalse { method.retTypeRef!!.isBroken }
+        assertEquals(tokens.last(), method.retTypeRef!!.identifierToken)
+    }
+
+    @Test
+    fun `parse method with empty body`() {
+        val tokens = listOf(
+            Token(TokenKind.METHOD, Position(2u, 1u, "test")),
+            Token("foo", TokenKind.IDENTIFIER, Position(2u, 8u, "test")),
+            Token(TokenKind.IS, Position(2u, 12u, "test")),
+            Token(TokenKind.END, Position(2u, 15u, "test")),
+        )
+        val method = parser.parseMethod(tokens)
+        assertFalse { method.isBroken }
+        assertFalse { diag.hasErrors }
+
+        assertFalse { method.isForwardDecl }
+        assertEquals(tokens[0], method.keyword)
+        assertEquals(tokens[1], method.identifierToken)
+        assertNull(method.params)
+        assertNull(method.colon)
+        assertNull(method.retTypeRef)
+        assertNotNull(method.body)
+        assertFalse { method.body!!.isBroken }
+        assertIs<MethodBody.MBody>(method.body!!)
+        assertTrue { (method.body!! as MethodBody.MBody).body.nodes.isEmpty() }
+    }
+
+    @Test
+    fun `parse method arrow body`() {
+        val tokens = listOf(
+            Token(TokenKind.METHOD, Position(2u, 1u, "test")),
+            Token("foo", TokenKind.IDENTIFIER, Position(2u, 8u, "test")),
+            Token(TokenKind.COLON, Position(2u, 12u, "test")),
+            Token("Integer", TokenKind.IDENTIFIER, Position(2u, 14u, "test")),
+            Token(TokenKind.WIDE_ARROW, Position(2u, 22u, "test")),
+            Token("5", TokenKind.INT_LITERAL, Position(2u, 25u, "test")),
+        )
+        val method = parser.parseMethod(tokens)
+        assertFalse { method.isBroken }
+        assertFalse { diag.hasErrors }
+
+        assertFalse { method.isForwardDecl }
+        assertEquals(tokens[0], method.keyword)
+        assertEquals(tokens[1], method.identifierToken)
+        assertNull(method.params)
+        assertNotNull(method.colon)
+        assertNotNull(method.retTypeRef)
+        assertEquals(tokens[3], method.retTypeRef!!.identifierToken)
+        assertNotNull(method.body)
+        assertFalse { method.body!!.isBroken }
+
+        val body = method.body
+        assertIs<MethodBody.MExpr>(body)
+        assertIs<IntegerLiteral>(body.expr)
+        assertEquals(tokens.last().value.toLong(), (body.expr as IntegerLiteral).value)
+    }
+
+    @Test
+    fun `parse constructor with empty body`() {
+        val tokens = listOf(
+            Token(TokenKind.THIS, Position(2u, 1u, "test")),
+            Token(TokenKind.IS, Position(2u, 12u, "test")),
+            Token(TokenKind.END, Position(2u, 15u, "test")),
+        )
+        val ctor = parser.parseConstructor(tokens)
+        assertFalse { ctor.isBroken }
+        assertFalse { diag.hasErrors }
+
+        assertNull(ctor.params)
+        assertEquals(tokens[0], ctor.thisToken)
+        assertFalse { ctor.body.isBroken }
+        assertTrue { ctor.body.nodes.isEmpty() }
+    }
+
+    @Test
+    fun `parse while loop`() {
+        val assignmentTokens = listOf(
+            Token(TokenKind.VAR, Position(2u, 4u, "test")),
+            Token("x", TokenKind.IDENTIFIER, Position(2u, 8u, "test")),
+            Token(TokenKind.COLON, Position(2u, 10u, "test")),
+            Token("5", TokenKind.INT_LITERAL, Position(2u, 12u, "test")),
+        )
+
+        val tokens = listOf(
+            Token(TokenKind.WHILE, Position(1u, 1u, "test")),
+            Token(TokenKind.TRUE, Position(1u, 6u, "test")),
+            Token(TokenKind.LOOP, Position(1u, 12u, "test")),
+            *assignmentTokens.toTypedArray(),
+            Token(TokenKind.END, Position(3u, 1u, "test")),
+        )
+
+        val loop = parser.parseWhileLoop(tokens)
+        assertFalse { loop.isBroken }
+        assertFalse { diag.hasErrors }
+
+        assertEquals(tokens[0], loop.keyword)
+        val cond = loop.cond
+        assertIs<BooleanLiteral>(cond)
+        assertEquals(true, cond.value)
+
+        assertEquals(tokens[2], loop.body.isToken)
+        assertEquals(1, loop.body.nodes.size)
+        assertIs<VarDecl>(loop.body.nodes.first())
+
+        assertEquals(tokens.last(), loop.body.endToken)
+    }
+
+    @Test
+    fun `parse if then`() {
+        val assignmentTokens = listOf(
+            Token(TokenKind.VAR, Position(2u, 4u, "test")),
+            Token("x", TokenKind.IDENTIFIER, Position(2u, 8u, "test")),
+            Token(TokenKind.COLON, Position(2u, 10u, "test")),
+            Token("5", TokenKind.INT_LITERAL, Position(2u, 12u, "test")),
+        )
+
+        val tokens = listOf(
+            Token(TokenKind.IF, Position(1u, 1u, "test")),
+            Token(TokenKind.TRUE, Position(1u, 6u, "test")),
+            Token(TokenKind.THEN, Position(1u, 12u, "test")),
+            *assignmentTokens.toTypedArray(),
+            Token(TokenKind.END, Position(3u, 1u, "test")),
+        )
+
+        val ifnode = parser.parseIfNode(tokens)
+        assertFalse { ifnode.isBroken }
+        assertFalse { diag.hasErrors }
+
+        assertEquals(tokens[0], ifnode.ifToken)
+        val cond = ifnode.cond
+        assertIs<BooleanLiteral>(cond)
+        assertEquals(true, cond.value)
+
+        assertEquals(tokens[2], ifnode.thenBody.isToken)
+        assertEquals(1, ifnode.thenBody.nodes.size)
+        assertIs<VarDecl>(ifnode.thenBody.nodes.first())
+
+        assertEquals(tokens.last(), ifnode.thenBody.endToken)
+        assertNull(ifnode.elseBody)
+    }
+
+    @Test
+    fun `parse if then else`() {
+        val assignmentTokens = listOf(
+            Token(TokenKind.VAR, Position(2u, 4u, "test")),
+            Token("x", TokenKind.IDENTIFIER, Position(2u, 8u, "test")),
+            Token(TokenKind.COLON, Position(2u, 10u, "test")),
+            Token("5", TokenKind.INT_LITERAL, Position(2u, 12u, "test")),
+        )
+
+        val tokens = listOf(
+            Token(TokenKind.IF, Position(1u, 1u, "test")),
+            Token(TokenKind.TRUE, Position(1u, 6u, "test")),
+            Token(TokenKind.THEN, Position(1u, 12u, "test")),
+            *assignmentTokens.toTypedArray(),
+            Token(TokenKind.ELSE, Position(3u, 1u, "test")),
+            *assignmentTokens.toTypedArray(),
+            Token(TokenKind.END, Position(5u, 1u, "test")),
+        )
+
+        val ifnode = parser.parseIfNode(tokens)
+        assertFalse { ifnode.isBroken }
+        assertFalse { diag.hasErrors }
+
+        assertEquals(tokens[0], ifnode.ifToken)
+        val cond = ifnode.cond
+        assertIs<BooleanLiteral>(cond)
+        assertEquals(true, cond.value)
+
+        assertEquals(tokens[2], ifnode.thenBody.isToken)
+        assertEquals(1, ifnode.thenBody.nodes.size)
+        assertIs<VarDecl>(ifnode.thenBody.nodes.first())
+
+        assertEquals(tokens[7], ifnode.thenBody.endToken)
+        val elseBody = ifnode.elseBody
+        assertNotNull(elseBody)
+        assertEquals(null, elseBody.isToken)
+        assertEquals(1, elseBody.nodes.size)
+        assertIs<VarDecl>(elseBody.nodes.first())
+        assertEquals(tokens.last(), elseBody.endToken)
+    }
+
+    @Test
+    fun `parse return`() {
+        val tokens = listOf(
+            Token(TokenKind.RETURN, Position(1u, 1u, "test")),
+        )
+
+        val ret = parser.parseReturnNode(tokens)
+
+        assertEquals(tokens[0], ret.keyword)
+        assertNull(ret.expr)
+    }
+
+    @Test
+    fun `parse return value`() {
+        val tokens = listOf(
+            Token(TokenKind.RETURN, Position(1u, 1u, "test")),
+            Token("5", TokenKind.INT_LITERAL, Position(1u, 8u, "test"))
+        )
+
+        val ret = parser.parseReturnNode(tokens)
+
+        assertEquals(tokens[0], ret.keyword)
+        val retVal = ret.expr
+        assertNotNull(retVal)
+        assertIs<IntegerLiteral>(retVal)
+    }
+
+    @Test
+    fun `parse assignment`() {
+        val tokens = listOf(
+            Token("x", TokenKind.IDENTIFIER, Position(1u, 1u, "test")),
+            Token(TokenKind.ASSIGN, Position(1u, 3u, "test")),
+            Token("5", TokenKind.INT_LITERAL, Position(1u, 6u, "test"))
+        )
+
+        val asn = parser.parseAssignment(tokens)
+
+        assertEquals(tokens[0], asn.identifierToken)
+        assertEquals(tokens[1], asn.assignmentToken)
+        val rhs = asn.expr
+        assertIs<IntegerLiteral>(rhs)
+        assertEquals(tokens.last().value.toLong(), rhs.value)
     }
 
     @Test
