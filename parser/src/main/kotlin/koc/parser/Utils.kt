@@ -1,6 +1,7 @@
 package koc.parser
 
 import koc.lex.Token
+import koc.parser.ast.Attribute
 import koc.parser.ast.Node
 import koc.parser.ast.visitor.Insight
 import koc.parser.ast.visitor.Order
@@ -137,6 +138,7 @@ fun <T: Node, R> T.walk(visitor: Visitor<R>, order: Order = Order.TOP_DOWN, onBr
 
     var result: R? = null
     if (order == Order.TOP_DOWN) {
+        this.enable(Attribute.IN_VISITOR)
         visitor.previsit(this)
         result = visitor.visit(this)
     }
@@ -152,11 +154,16 @@ fun <T: Node, R> T.walk(visitor: Visitor<R>, order: Order = Order.TOP_DOWN, onBr
 
     if (order == Order.BOTTOM_UP) {
         result = if (visitor.insight != Insight.STOP) {
+            this.enable(Attribute.IN_VISITOR)
             visitor.previsit(this)
-            visitor.visit(this).also { visitor.postvisit(this, it) }
+            visitor.visit(this).also {
+                visitor.postvisit(this, it)
+                this.disable(Attribute.IN_VISITOR)
+            }
         } else childRes
     } else {
         visitor.postvisit(this, result!!)
+        this.disable(Attribute.IN_VISITOR)
     }
 
     return result ?: throw IllegalStateException("AST visitor returned no result for ${this.javaClass.simpleName} node")

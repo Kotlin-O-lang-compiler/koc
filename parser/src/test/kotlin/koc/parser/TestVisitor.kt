@@ -63,10 +63,12 @@ class TestVisitor {
 
         val visitor = object : AbstractVoidVisitor() {
             override fun visit(node: Node) {
+                assertTrue(node.inVisit)
                 super.visit(node)
                 visited++
             }
             override fun previsit(classDecl: ClassDecl) {
+                assertTrue(classDecl.inVisit)
                 assertEquals(0, classVisited)
                 classVisited++
                 assertEquals(0, classBodyVisited)
@@ -76,6 +78,7 @@ class TestVisitor {
                 assertEquals(0, varInitializerVisited)
             }
             override fun visit(classDecl: ClassDecl) {
+                assertTrue(classDecl.inVisit)
                 assertEquals(1, classVisited)
                 classVisited++
                 assertEquals(0, classBodyVisited)
@@ -86,6 +89,7 @@ class TestVisitor {
             }
 
             override fun postvisit(classDecl: ClassDecl, res: Unit) {
+                assertTrue(classDecl.inVisit)
                 assertEquals(2, classVisited)
                 classVisited++
                 assertEquals(3, classBodyVisited)
