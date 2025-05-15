@@ -2,7 +2,9 @@ package koc.parser.ast
 
 import koc.lex.Token
 import koc.lex.TokenKind
+import koc.parser.ast.visitor.Visitor
 import koc.parser.tokens
+import koc.parser.walk
 
 
 sealed class Expr : Node(), Typed
@@ -15,13 +17,23 @@ class InvalidExpr : Expr() {
     override val tokens: List<Token>
         get() = listOf()
 
-    private var _type: Type = InvalidType()
+    private var _type: ClassType? = null
 
-    override val type: Type get() = _type
+    override val type: ClassType
+        get() {
+            ensureAfterSema()
+            return _type!!
+        }
+
+    override val rootType: ClassType
+        get() = type
 
     override fun specifyType(type: Type) {
+        require(type is ClassType)
         _type = type
     }
+
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken)
 }
 
 data class RefExpr(val identifierToken: Token, val generics: GenericParams? = null) : Expr(), Typed {
@@ -38,6 +50,9 @@ data class RefExpr(val identifierToken: Token, val generics: GenericParams? = nu
             return _type!!
         }
 
+    override val rootType: ClassType
+        get() = type
+
     val isThis: Boolean
         get() = identifierToken.kind == TokenKind.THIS
 
@@ -48,6 +63,8 @@ data class RefExpr(val identifierToken: Token, val generics: GenericParams? = nu
         require(type is ClassType)
         _type = type
     }
+
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, generics)
 }
 
 class IntegerLiteral(val token: Token) : Expr() {
@@ -67,10 +84,15 @@ class IntegerLiteral(val token: Token) : Expr() {
             return _type!!
         }
 
+    override val rootType: ClassType
+        get() = type
+
     override fun specifyType(type: Type) {
         require(type is ClassType)
         _type = type
     }
+
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken)
 }
 
 class RealLiteral(val token: Token) : Expr() {
@@ -90,10 +112,15 @@ class RealLiteral(val token: Token) : Expr() {
             return _type!!
         }
 
+    override val rootType: ClassType
+        get() = type
+
     override fun specifyType(type: Type) {
         require(type is ClassType)
         _type = type
     }
+
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken)
 }
 
 class BooleanLiteral(val token: Token) : Expr() {
@@ -113,18 +140,18 @@ class BooleanLiteral(val token: Token) : Expr() {
             return _type!!
         }
 
+    override val rootType: ClassType
+        get() = type
+
     override fun specifyType(type: Type) {
         require(type is ClassType)
         _type = type
     }
+
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken)
 }
 
-class CallExpr(
-    val ref: RefExpr,
-    val lparen: Token,
-    val rparen: Token
-) : Expr() {
-
+class CallExpr(val ref: RefExpr, val lparen: Token, val rparen: Token) : Expr() {
     private val _args = ArrayList<Argument>()
 
     val args: List<Argument> get() = _args
@@ -159,10 +186,17 @@ class CallExpr(
             return _type!!
         }
 
+    override val rootType: ClassType
+        get() = type
+
     override fun specifyType(type: Type) {
         require(type is ClassType)
         _type = type
     }
+
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(
+        visitor, visitor.order, visitor.onBroken, ref, *args.toTypedArray()
+    )
 }
 
 class MemberAccessExpr(
@@ -180,14 +214,20 @@ class MemberAccessExpr(
         get() = left.tokens + dot + member.tokens
 
     private var _type: ClassType? = null
-    override val type: Type
+
+    override val type: ClassType
         get() {
             ensureAfterSema()
             return _type!!
         }
 
+    override val rootType: ClassType
+        get() = type
+
     override fun specifyType(type: Type) {
         require(type is ClassType)
         _type = type
     }
+
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, left, member)
 }

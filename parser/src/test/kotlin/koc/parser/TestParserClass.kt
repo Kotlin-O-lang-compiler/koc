@@ -132,8 +132,7 @@ class TestParserClass {
     fun `parse class with forward method decl min`() {
         val methodTokens = listOf(
             Token(TokenKind.METHOD, Position(2u, 1u, "test")),
-            Token("foo", TokenKind.IDENTIFIER, Position(2u, 8u, "test")),
-
+            Token("foo", TokenKind.IDENTIFIER, Position(2u, 8u, "test"))
         )
         val tokens = listOf(
             Token(TokenKind.CLASS, Position(1u, 1u, "test")),
@@ -164,9 +163,8 @@ class TestParserClass {
     fun `parse method forward decl min`() {
         val tokens = listOf(
             Token(TokenKind.METHOD, Position(2u, 1u, "test")),
-            Token("foo", TokenKind.IDENTIFIER, Position(2u, 8u, "test")),
-
-            )
+            Token("foo", TokenKind.IDENTIFIER, Position(2u, 8u, "test"))
+        )
         val method = parser.parseMethod(tokens)
         assertFalse { method.isBroken }
         assertFalse { diag.hasErrors }
@@ -183,7 +181,7 @@ class TestParserClass {
             Token("foo", TokenKind.IDENTIFIER, Position(2u, 8u, "test")),
             Token(TokenKind.LPAREN, Position(2u, 12u, "test")),
             Token(TokenKind.RPAREN, Position(2u, 13u, "test")),
-            )
+        )
         val method = parser.parseMethod(tokens)
         assertFalse { method.isBroken }
         assertFalse { diag.hasErrors }

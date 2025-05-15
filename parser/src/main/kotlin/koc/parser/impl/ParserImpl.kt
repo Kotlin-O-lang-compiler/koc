@@ -43,9 +43,22 @@ class ParserImpl(
 ) : Parser {
     private val core = ParserCore(diag)
 
-    override fun parse(tokens: List<Token>): Node {
-        TODO("Not yet implemented")
+    val currentTokenIdx: Int get() = core.currentIdx
+
+    override fun parseNodes(tokens: List<Token>): List<Node> {
+        var token = 0
+        val nodes = arrayListOf<Node>()
+
+        while (token < tokens.size) {
+            nodes += parseClassDecl(tokens.subList(token, tokens.size))
+            token += currentTokenIdx + 1
+        }
+        return nodes
     }
+
+//    override fun parse(tokens: List<Token>): Node {
+//        TODO("Not yet implemented, please use concrete node `parse{node}`")
+//    }
 
     override fun parseClassDecl(tokens: List<Token>): ClassDecl {
         core.feed(tokens)
@@ -123,7 +136,7 @@ class ParserImpl(
     }
 
     private fun parseClassDecl(): ClassDecl {
-        return core.withScope(ParserCore.ParseScopeKind.CLASS) {
+        return core.withScope(ParseScopeKind.CLASS) {
             val classToken = expect(TokenKind.CLASS)
             val ref = parseRefExpr() // parse identifier and generic params
 
@@ -136,7 +149,7 @@ class ParserImpl(
     }
 
     private fun parseClassBody(): ClassBody {
-        return core.withScope(ParserCore.ParseScopeKind.CLASS_BODY) {
+        return core.withScope(ParseScopeKind.CLASS_BODY) {
             val isToken = expect(TokenKind.IS)
             val members = arrayListOf<ClassMemberDecl>()
             while (next?.kind != TokenKind.END) {
@@ -152,19 +165,20 @@ class ParserImpl(
     private fun parseClassMemberDecl(): ClassMemberDecl {
         val first = core.expect(classMemberStartToken, lookahead = true)
 
-        when (first.kind) {
-            TokenKind.VAR -> return FieldDecl(parseVarDecl())
-            TokenKind.METHOD -> return parseMethod()
-            TokenKind.THIS -> return parseConstructor()
+        return when (first.kind) {
+            TokenKind.VAR -> FieldDecl(parseVarDecl())
+            TokenKind.METHOD -> parseMethod()
+            TokenKind.THIS -> parseConstructor()
             else -> {
-                diag.error(ExpectedNodeException("class member", first, core.currentTokens), first.start)
-                return MethodDecl(Token.invalid, Token.invalid) // invalid decl
+                if (first.kind != TokenKind.INVALID)
+                    diag.error(ExpectedNodeException("class member", first, core.currentTokens), first.start)
+                MethodDecl(Token.invalid, Token.invalid) // invalid decl
             }
-        }
+        }.apply { specifyScope(core.scope) }
     }
 
     private fun parseVarDecl(): VarDecl {
-        return core.withScope(ParserCore.ParseScopeKind.VAR) {
+        return core.withScope(ParseScopeKind.VAR) {
             val keyword = expect(TokenKind.VAR)
             val id = expect(TokenKind.IDENTIFIER)
             val colon = expect(TokenKind.COLON)
@@ -174,61 +188,59 @@ class ParserImpl(
         }
     }
 
-    private fun parseMethod(): MethodDecl {
-        return core.withScope(ParserCore.ParseScopeKind.METHOD) {
-            val keyword = expect(TokenKind.METHOD)
-            val id = expect(TokenKind.IDENTIFIER)
+    private fun parseMethod(): MethodDecl = core.withScope(ParseScopeKind.METHOD) {
+        val keyword = expect(TokenKind.METHOD)
+        val id = expect(TokenKind.IDENTIFIER)
 
-            if (next == null) return@withScope MethodDecl(keyword, id)
+        if (next == null) return@withScope MethodDecl(keyword, id)
 
-            val afterId = expect(
-                classMemberStartToken + TokenKind.END + TokenKind.LPAREN + TokenKind.COLON + TokenKind.IS + TokenKind.WIDE_ARROW,
+        val afterId = expect(
+            classMemberStartToken + TokenKind.END + TokenKind.LPAREN + TokenKind.COLON + TokenKind.IS + TokenKind.WIDE_ARROW,
+            lookahead = true
+        )
+        if (afterId.kind in classMemberStartToken + TokenKind.END) return@withScope MethodDecl(keyword, id)
+
+        val params = when (afterId.kind) {
+            TokenKind.LPAREN -> parseParams()
+            else -> null
+        }
+
+        val afterParams = when {
+            afterId.kind == TokenKind.COLON -> afterId
+            next == null -> return@withScope MethodDecl(keyword, id, params)
+            else -> expect(
+                classMemberStartToken + TokenKind.END + TokenKind.COLON + TokenKind.IS + TokenKind.WIDE_ARROW,
                 lookahead = true
             )
-            if (afterId.kind in classMemberStartToken + TokenKind.END) return@withScope MethodDecl(keyword, id)
-
-            val params = when (afterId.kind) {
-                TokenKind.LPAREN -> parseParams()
-                else -> null
-            }
-
-            val afterParams = when {
-                afterId.kind == TokenKind.COLON -> afterId
-                next == null -> return@withScope MethodDecl(keyword, id, params)
-                else -> expect(
-                    classMemberStartToken + TokenKind.END + TokenKind.COLON + TokenKind.IS + TokenKind.WIDE_ARROW,
-                    lookahead = true
-                )
-            }
-
-            if (afterParams.kind in classMemberStartToken + TokenKind.END) return@withScope MethodDecl(
-                keyword, id, params
-            )
-
-            val colon = if (afterParams.kind == TokenKind.COLON) expect(TokenKind.COLON) else null
-            val retType = colon?.let { parseRefExpr() }
-
-            val afterRetType = when {
-                afterParams.kind in listOf(TokenKind.IS, TokenKind.WIDE_ARROW) -> afterParams
-                next == null -> return@withScope MethodDecl(keyword, id, params, colon, retType)
-                else -> expect(classMemberStartToken + TokenKind.END + TokenKind.IS + TokenKind.WIDE_ARROW, lookahead = true)
-            }
-
-            if (afterRetType.kind in classMemberStartToken + TokenKind.END) return@withScope MethodDecl(
-                keyword, id, params, colon, retType
-            )
-
-            val body = when (afterRetType.kind) {
-                TokenKind.IS -> MethodBody.MBody(parseMethodBody())
-                TokenKind.WIDE_ARROW -> {
-                    val arrow = expect(TokenKind.WIDE_ARROW)
-                    MethodBody.MExpr(arrow, parseExpr())
-                }
-                else -> null
-            }
-
-            MethodDecl(keyword, id, params, colon, retType, body)
         }
+
+        if (afterParams.kind in classMemberStartToken + TokenKind.END) return@withScope MethodDecl(
+            keyword, id, params
+        )
+
+        val colon = if (afterParams.kind == TokenKind.COLON) expect(TokenKind.COLON) else null
+        val retType = colon?.let { parseRefExpr() }
+
+        val afterRetType = when {
+            afterParams.kind in listOf(TokenKind.IS, TokenKind.WIDE_ARROW) -> afterParams
+            next == null -> return@withScope MethodDecl(keyword, id, params, colon, retType)
+            else -> expect(classMemberStartToken + TokenKind.END + TokenKind.IS + TokenKind.WIDE_ARROW, lookahead = true)
+        }
+
+        if (afterRetType.kind in classMemberStartToken + TokenKind.END) return@withScope MethodDecl(
+            keyword, id, params, colon, retType
+        )
+
+        val body = when (afterRetType.kind) {
+            TokenKind.IS -> MethodBody.MBody(parseMethodBody())
+            TokenKind.WIDE_ARROW -> {
+                val arrow = expect(TokenKind.WIDE_ARROW)
+                MethodBody.MExpr(arrow, parseExpr())
+            }
+            else -> null
+        }
+
+        MethodDecl(keyword, id, params, colon, retType, body)
     }
 
     private fun parseConstructor(): ConstructorDecl = with(core) {
@@ -257,7 +269,7 @@ class ParserImpl(
 
         val rparen = core.expect(TokenKind.RPAREN)
 
-        return Params(lparen, rparen).also { it += params }
+        return Params(lparen, rparen).also { it += params }.apply { specifyScope(core.scope) }
     }
 
     private fun parseParam(): Param {
@@ -267,7 +279,7 @@ class ParserImpl(
         val id = if (first.kind == TokenKind.IDENTIFIER) first else core.expect(TokenKind.IDENTIFIER)
         val colon = core.expect(TokenKind.COLON)
         val type = parseRefExpr()
-        return Param(id, colon, type, comma)
+        return Param(id, colon, type, comma).apply { specifyScope(core.scope) }
     }
 
     private fun parseBodyNodes(vararg end: TokenKind = arrayOf(TokenKind.END)): List<Node> = with(core) {
@@ -287,11 +299,10 @@ class ParserImpl(
     }
 
     private fun parseBody(
-        scope: ParserCore.ParseScopeKind = ParserCore.ParseScopeKind.BODY,
+        scope: ParseScopeKind = ParseScopeKind.BODY,
         start: Collection<TokenKind> = listOf(TokenKind.IS),
         end: Collection<TokenKind> = listOf(TokenKind.END)
-    )
-        : Body = with(core) {
+    ): Body = with(core) {
         val startToken = if (start.isEmpty()) null else expect(start.toList())
         val nodes = core.withScope(scope) {
             parseBodyNodes(*end.toTypedArray())
@@ -305,6 +316,7 @@ class ParserImpl(
                     else -> throw IllegalStateException("Only statement or variable declaration")
                 }
             }
+            specifyScope(core.scope)
         }
     }
 
@@ -314,12 +326,12 @@ class ParserImpl(
         val args = arrayListOf<Argument>()
 
         if (core.next?.kind != TokenKind.RPAREN) {
-            args += Argument(parseExpr())
+            args += Argument(parseExpr()).apply { specifyScope(core.scope) }
         }
 
         while (core.next?.kind != TokenKind.RPAREN) {
             val comma = core.expect(TokenKind.COMMA)
-            args += Argument(parseExpr(), comma)
+            args += Argument(parseExpr(), comma).apply { specifyScope(core.scope) }
         }
 
         return args
@@ -339,60 +351,63 @@ class ParserImpl(
                 if (next?.kind in listOf(TokenKind.DOT, TokenKind.LPAREN)) {
                     val afterThis = expect(listOf(TokenKind.DOT, TokenKind.LPAREN))
                     when (afterThis.kind) {
-                        TokenKind.DOT -> MemberAccessExpr(ref, afterThis, parseExpr())
+                        TokenKind.DOT -> MemberAccessExpr(ref, afterThis, parseExpr()).apply { specifyScope(core.scope) }
                         TokenKind.LPAREN -> {
                             val args = parseArguments()
                             val rparen = expect(TokenKind.RPAREN)
-                            CallExpr(ref, afterThis, rparen).apply { this += args }
+                            CallExpr(ref, afterThis, rparen).apply { this += args }.apply { specifyScope(core.scope) }
                         }
                         else -> throw IllegalStateException("`(` or `.`")
                     }
                 } else ref
             }
 
-            else -> diag.error(ExpectedNodeException("expression", nxt, currentTokens), nxt.start).let { InvalidExpr() }
+            else -> diag.error(ExpectedNodeException("expression", nxt, currentTokens), nxt.start).let {
+                InvalidExpr().apply { specifyScope(core.scope) }
+            }
         }
     }
 
     private fun parseIntegerLiteral(): IntegerLiteral {
         val token = core.expect(TokenKind.INT_LITERAL)
-        return IntegerLiteral(token)
+        return IntegerLiteral(token).apply { specifyScope(core.scope) }
     }
 
     private fun parseRealLiteral(): RealLiteral {
         val token = core.expect(TokenKind.REAL_LITERAL)
-        return RealLiteral(token)
+        return RealLiteral(token).apply { specifyScope(core.scope) }
     }
 
     private fun parseBooleanLiteral(): BooleanLiteral {
         val token = core.expect(listOf(TokenKind.TRUE, TokenKind.FALSE))
-        return BooleanLiteral(token)
+        return BooleanLiteral(token).apply { specifyScope(core.scope) }
     }
 
     private fun parseRefExpr(): RefExpr {
         val identifier = core.expect(listOf(TokenKind.IDENTIFIER, TokenKind.THIS))
 
-        if (core.next?.kind != TokenKind.LSQUARE) return RefExpr(identifier)
+        if (core.next?.kind != TokenKind.LSQUARE) return RefExpr(identifier).apply { specifyScope(core.scope) }
 
         val lsquare = core.expect(TokenKind.LSQUARE)
         val params = arrayListOf<TypeParam>()
-        params += TypeParam(parseRefExpr())
+        params += TypeParam(parseRefExpr()).apply { specifyScope(core.scope) }
 
         while (core.next?.kind == TokenKind.COMMA) {
             val comma = core.expect(TokenKind.COMMA)
             val typeRef = parseRefExpr()
-            val typeParam = TypeParam(typeRef, comma)
+            val typeParam = TypeParam(typeRef, comma).apply { specifyScope(core.scope) }
             params += typeParam
         }
 
         val rsquare = core.expect(TokenKind.RSQUARE)
 
-        val generics = GenericParams(lsquare, rsquare).also { it += params }
+        val generics = GenericParams(lsquare, rsquare).also { it += params }.apply { specifyScope(core.scope) }
         return RefExpr(identifier, generics).apply {
             if (isThis) {
                 enable(Attribute.BROKEN)
                 diag.error(UnexpectedTokenException(lsquare, listOf(), tokens), lsquare.start)
             }
+            specifyScope(core.scope)
         }
     }
 
@@ -400,7 +415,7 @@ class ParserImpl(
         val lhs = expect(TokenKind.IDENTIFIER)
         val eq = expect(TokenKind.ASSIGN)
         val rhs = parseExpr()
-        Assignment(lhs, eq, rhs)
+        Assignment(lhs, eq, rhs).apply { specifyScope(core.scope) }
     }
 
     private fun parseWhileLoop(): WhileNode = with(core) {
@@ -408,11 +423,11 @@ class ParserImpl(
         val cond = parseExpr()
         val loopToken = expect(TokenKind.LOOP)
 
-        val statements = core.withScope(ParserCore.ParseScopeKind.WHILE_BODY) {
+        val statements = core.withScope(ParseScopeKind.WHILE_BODY) {
             parseBodyNodes()
         }
         val endToken = expect(TokenKind.END)
-        val body = Body(loopToken, endToken)
+        val body = Body(loopToken, endToken).apply { specifyScope(core.scope) }
         for (stmt in statements) {
             when (stmt) {
                 is VarDecl -> body += stmt
@@ -420,7 +435,7 @@ class ParserImpl(
                 else -> throw IllegalStateException("Only statement or variable declaration")
             }
         }
-        WhileNode(keyword, cond, body)
+        WhileNode(keyword, cond, body).apply { specifyScope(core.scope) }
     }
 
     private fun parseIf(): IfNode = with(core) {
@@ -434,13 +449,13 @@ class ParserImpl(
             else -> throw IllegalStateException("Only `else` or `end` after if-body")
         }
 
-        IfNode(keyword, cond, thenBody, elseBody)
+        IfNode(keyword, cond, thenBody, elseBody).apply { specifyScope(core.scope) }
     }
 
     private fun parseReturn(): ReturnNode = with(core) {
         val ret = expect(TokenKind.RETURN)
         val expr = if (next?.kind in exprStartToken) parseExpr() else null
-        ReturnNode(ret, expr)
+        ReturnNode(ret, expr).apply { specifyScope(core.scope) }
     }
 
     companion object {

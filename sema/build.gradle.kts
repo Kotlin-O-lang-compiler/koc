@@ -1,14 +1,10 @@
 plugins {
-    // Apply the shared build logic from a convention plugin.
-    // The shared code is located in `buildSrc/src/main/kotlin/kotlin-jvm.gradle.kts`.
     id("buildsrc.convention.kotlin-jvm")
 }
 
 dependencies {
-    implementation(project(":driver"))
     implementation(project(":lex"))
     implementation(project(":parser"))
-    implementation(project(":sema"))
     implementation(project(":utils"))
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.2.0")
@@ -17,6 +13,5 @@ dependencies {
 }
 
 tasks.test {
-    // Use the built-in JUnit support of Gradle.
     useJUnitPlatform()
 }

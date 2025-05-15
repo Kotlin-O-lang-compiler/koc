@@ -1,7 +1,7 @@
 package koc.driver.api
 
 import java.nio.file.Path
-import koc.driver.KocOptions
+import koc.utils.KocOptions
 import koc.lex.Lexer
 import koc.lex.LexerImpl
 import koc.lex.Token

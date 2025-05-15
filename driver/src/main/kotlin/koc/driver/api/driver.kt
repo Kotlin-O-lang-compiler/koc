@@ -1,23 +1,22 @@
 package koc.driver.api
 
-import koc.lex.dump
-import koc.utils.Diagnostics
-import java.nio.file.Path
-import koc.driver.KocOptions
+import koc.driver.Kocpiler
 import koc.lex.Token
-import kotlin.io.path.name
+import koc.lex.dump
+import koc.parser.ast.Node
+import koc.parser.dump
+import koc.utils.Diagnostics
+import koc.utils.KocOptions
+import java.nio.file.Path
 
 fun koc(
     programs: List<Path>,
     diag: Diagnostics = Diagnostics(),
     options: KocOptions,
 ) {
+    val compiler = Kocpiler(diag = diag, opts = options)
     for (program in programs) {
-        val tokens = lex(program, diag, options)
-
-        dumpTokens(tokens, program.name, options)
-
-        // TODO("Parser is not implemented yet")
+        compiler.run(program)
     }
 }
 
@@ -26,13 +25,10 @@ fun kocFromCode(
     diag: Diagnostics = Diagnostics(),
     options: KocOptions,
 ) {
+    val compiler = Kocpiler(diag = diag, opts = options)
     programs.forEachIndexed { idx, program ->
         val programName = "program-$idx"
-        val tokens = lex(program, programName, diag, options)
-
-        dumpTokens(tokens, programName, options)
-
-        // TODO("Parser is not implemented yet")
+        compiler.run(program, programName)
     }
 }
 
@@ -48,7 +44,7 @@ fun kocFromCode(
     options: KocOptions,
 ) = kocFromCode(listOf(programCode), diag, options)
 
-private fun dumpTokens(
+internal fun dumpTokens(
     tokens: List<Token>,
     sourceId: String,
     options: KocOptions,
@@ -57,4 +53,15 @@ private fun dumpTokens(
 
     println("-".repeat(6) + " $sourceId " + "-".repeat(6))
     tokens.dump()
+}
+
+internal fun dumpParse(
+    nodes: List<Node>,
+    sourceId: String,
+    options: KocOptions,
+) {
+    if (!options.dumpParse) return
+
+    println("-".repeat(6) + " $sourceId " + "-".repeat(6))
+    nodes.forEach(Node::dump)
 }

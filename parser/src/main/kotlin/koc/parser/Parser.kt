@@ -19,7 +19,8 @@ import koc.parser.ast.VarDecl
 import koc.parser.ast.WhileNode
 
 interface Parser {
-    fun parse(tokens: List<Token>): Node
+    fun parseNodes(tokens: List<Token>): List<Node>
+//    fun parse(tokens: List<Token>): Node
 
     fun parseClassDecl(tokens: List<Token>): ClassDecl
     fun parseClassBody(tokens: List<Token>): ClassBody
@@ -39,4 +40,6 @@ interface Parser {
     fun parseIfNode(tokens: List<Token>): IfNode
     fun parseAssignment(tokens: List<Token>): Assignment
     fun parseReturnNode(tokens: List<Token>): ReturnNode
+
+    companion object
 }

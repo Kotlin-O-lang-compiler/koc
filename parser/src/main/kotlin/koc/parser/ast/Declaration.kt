@@ -1,8 +1,19 @@
 package koc.parser.ast
 
 import koc.lex.Token
+import koc.parser.ast.visitor.Visitor
+import koc.parser.indent
+import koc.parser.next
+import koc.parser.scope
+import koc.parser.walk
 
-sealed class Decl() : Node(), Typed
+sealed class Decl() : Node(), Typed {
+    override fun toString(indent: Int, builder: StringBuilder) {
+        builder.append(indent.indent, this.javaClass.simpleName).scope {
+            builder.appendLine(tokens.toString().prependIndent(indent.indent))
+        }
+    }
+}
 
 data class ClassDecl(
     val classToken: Token,
@@ -12,7 +23,6 @@ data class ClassDecl(
     val superTypeRef: RefExpr? = null,
     val body: ClassBody,
 ) : Decl() {
-
     init {
         require(extendsToken != null && superTypeRef != null || extendsToken == null && superTypeRef == null) {
             "Both `extendsToken` and `superTypeRef` could be non-null simultaneously"
@@ -27,7 +37,7 @@ data class ClassDecl(
 
     val ref: RefExpr get() = RefExpr(identifierToken, generics)
 
-    val hasExplicitSuperType: Boolean get() = extendsToken != null
+    val hasExplicitSuperType: Boolean get() = superTypeRef != null
 
     private var _type: ClassType? = null
 
@@ -37,10 +47,19 @@ data class ClassDecl(
             return _type!!
         }
 
+    override val rootType: ClassType
+        get() = type
+
     val superType: ClassType?
         get() {
             return type.superType
         }
+
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(
+        visitor, visitor.order, visitor.onBroken, *listOfNotNull(
+            generics, superTypeRef, body
+        ).toTypedArray()
+    )
 
     override val tokens: List<Token>
         get() {
@@ -50,14 +69,26 @@ data class ClassDecl(
             if (hasExplicitSuperType) {
                 tokens += extendsToken!!
                 tokens += superTypeRef!!.tokens
-                tokens += body.tokens
             }
+            tokens += body.tokens
             return tokens
         }
 
     override fun specifyType(type: Type) {
         require(type is ClassType)
         _type = type
+    }
+
+    override fun toString(indent: Int, builder: StringBuilder) {
+        builder.append(indent.indent, "ClassDecl(${identifier})").scope {
+            builder.append(indent.next, "class: $classToken").appendLine()
+            builder.append(indent.next, "identifier: $identifierToken").appendLine()
+            extendsToken?.let { builder.append(indent.next, "extends: $it").appendLine() }
+
+            generics?.toString(indent.next, builder)
+            superTypeRef?.toString(indent.next, builder)
+            body.toString(indent.next, builder)
+        }
     }
 }
 
@@ -86,13 +117,22 @@ data class FieldDecl(
             return _type!!
         }
 
+    override val rootType: ClassType
+        get() = type.classType
+
     override fun specifyType(type: Type) {
         require(type is FieldType)
         _type = type
     }
 
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, varDecl)
+
     override val tokens: List<Token>
         get() = varDecl.tokens
+
+    override fun toString(indent: Int, builder: StringBuilder) {
+        varDecl.toString(indent, builder)
+    }
 }
 
 data class ConstructorDecl(
@@ -113,13 +153,18 @@ data class ConstructorDecl(
         _type = type
     }
 
-    override val tokens: List<Token> get() {
-        val res = ArrayList<Token>()
-        res += thisToken
-        params?.let { res += it.tokens }
-        res += body.tokens
-        return res
-    }
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(
+        visitor, visitor.order, visitor.onBroken, *listOfNotNull(params, body).toTypedArray()
+    )
+
+    override val tokens: List<Token>
+        get() {
+            val res = ArrayList<Token>()
+            res += thisToken
+            params?.let { res += it.tokens }
+            res += body.tokens
+            return res
+        }
 }
 
 data class MethodDecl(
@@ -145,6 +190,10 @@ data class MethodDecl(
         require(type is MethodType)
         _type = type
     }
+
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(
+        visitor, visitor.order, visitor.onBroken, *listOfNotNull(params, retTypeRef, body).toTypedArray()
+    )
 
     override val tokens: List<Token>
         get() {
@@ -174,13 +223,31 @@ data class VarDecl(
             return _type!!
         }
 
+    override val rootType: ClassType
+        get() = type.classType
+
     override fun specifyType(type: Type) {
         require(type is VarType)
         _type = type
     }
 
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, initializer)
+
+    val identifier: Identifier
+        get() = Identifier(identifierToken.value)
+
     override val tokens: List<Token>
         get() = listOf(keyword, identifierToken, colonToken, *initializer.tokens.toTypedArray())
+
+    override fun toString(indent: Int, builder: StringBuilder) {
+        builder.append(indent.indent, "File(${identifier})").scope {
+            append(indent.indent, "var: $keyword").appendLine()
+            append(indent.indent, "identifier: $identifierToken").appendLine()
+            append(indent.indent, "colon: $colonToken").appendLine()
+
+            initializer.toString(indent.next, builder)
+        }
+    }
 }
 
 data class Param(
@@ -191,8 +258,25 @@ data class Param(
      * comma before the param
      */
     val commaToken: Token? = null
-) : Node() {
+) : Node(), Typed {
     val identifier: Identifier = Identifier(identifierToken.value)
+
+    private var _type: ParamType? = null
+    override val type: ParamType
+        get() {
+            ensureAfterSema()
+            return _type!!
+        }
+
+    override fun specifyType(type: Type) {
+        require(type is ParamType)
+        _type = type
+    }
+
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, typeRef)
+
+    override val rootType: ClassType
+        get() = type.classType
 
     override val tokens: List<Token>
         get() {
@@ -207,6 +291,8 @@ data class TypeParam(
     val typeRef: RefExpr,
     val commaToken: Token? = null
 ) : Node() {
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, typeRef)
+
     override val tokens: List<Token>
         get() {
             val res = arrayListOf<Token>()

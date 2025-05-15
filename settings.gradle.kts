@@ -18,7 +18,8 @@ plugins {
 
 include(":driver")
 include(":lex")
-include("parser")
+include(":parser")
+include(":sema")
 include(":utils")
 include(":test")
 

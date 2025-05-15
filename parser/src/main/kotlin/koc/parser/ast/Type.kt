@@ -4,6 +4,8 @@ import java.util.EnumSet
 
 interface Typed {
     val type: Type
+    val rootType: ClassType
+        get() = throw IllegalStateException("Type does not have class type")
 
     fun specifyType(type: Type)
 }
@@ -26,22 +28,32 @@ sealed class Type() : Attributed {
     }
 }
 
-class InvalidType() : Type()
-
 /**
  * @param superType: the root class is `Class` that does not have `superType`, other classes does.
  */
-class ClassType(val classDecl: ClassDecl, val superType: ClassType?) : Type() {
+data class ClassType(val classDecl: ClassDecl, val superType: ClassType?) : Type() {
+    init {
+        require(superType != null || classDecl.identifier.value == "Class") {
+            "Only root `Class` declaration is allowed to not have super type"
+        }
+    }
+
+    val identifier: Identifier
+        get() = classDecl.identifier
+
+    val isGeneric: Boolean
+        get() = classDecl.generics != null && classDecl.generics.types.isNotEmpty()
 }
 
 
-class VarType(val varDecl: VarDecl, val classType: ClassType) : Type() {
-
+data class VarType(val varDecl: VarDecl, val classType: ClassType) : Type() {
 }
 
 sealed class ClassMemberType(val outerDecl: ClassDecl) : Type()
 
-class FieldType(val varDecl: VarDecl, val classType: ClassType, outerDecl: ClassDecl) : ClassMemberType(outerDecl) {
+class FieldType(val field: FieldDecl, outerDecl: ClassDecl) : ClassMemberType(outerDecl) {
+    val classType: ClassType
+        get() = this.field.rootType
 
 }
 
@@ -52,3 +64,5 @@ class ConstructorType(val ctor: ConstructorDecl, outerDecl: ClassDecl) : ClassMe
 class MethodType(val method: MethodDecl, outerDecl: ClassDecl) : ClassMemberType(outerDecl) {
 
 }
+
+data class ParamType(val param: Param, val classType: ClassType): Type()

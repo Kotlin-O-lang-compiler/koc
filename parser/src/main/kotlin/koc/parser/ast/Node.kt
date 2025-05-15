@@ -1,7 +1,13 @@
 package koc.parser.ast
 
 import koc.lex.Token
+import koc.parser.ast.visitor.Visitor
+import koc.parser.impl.ParseScope
+import koc.parser.indent
+import koc.parser.next
+import koc.parser.scope
 import koc.parser.tokens
+import koc.parser.walk
 import koc.utils.Position
 import java.util.EnumSet
 
@@ -12,8 +18,14 @@ sealed class Node : Attributed {
     private val _attributes: MutableSet<Attribute> = EnumSet.noneOf(Attribute::class.java)
     override val attrs: Set<Attribute> get() = _attributes
 
+    private var _scope: ParseScope? = null
+    val scope: ParseScope get() = _scope!!
+
     val isBroken: Boolean get() = Attribute.BROKEN in attrs || hasInvalidToken
     val afterSema: Boolean get() = Attribute.AFTER_TYPE_CHECK in attrs
+    val isBuiltIn: Boolean get() = Attribute.BUILTIN in attrs
+    val inTypeCheck: Boolean get() = Attribute.IN_TYPE_CHECK in attrs
+    val inVisit: Boolean get() = Attribute.IN_VISITOR in attrs
 
     private val hasInvalidToken by lazy {
         tokens.any { !it.isValid }
@@ -37,23 +49,48 @@ sealed class Node : Attributed {
         require(afterSema)
     }
 
+    fun specifyScope(scope: ParseScope) {
+        _scope = scope
+    }
+
     abstract val tokens: List<Token>
+
+    abstract fun <T> visit(visitor: Visitor<T>): T?
+
+    fun toString(indent: Int): String {
+        val builder = StringBuilder()
+        toString(indent, builder)
+        return builder.toString()
+    }
+
+    open fun toString(indent: Int, builder: StringBuilder) {
+        builder.append(indent.indent, this.javaClass.simpleName).scope {
+            builder.appendLine(tokens.toString().prependIndent(indent.indent))
+        }
+    }
+
+    override fun toString(): String = toString(0)
 }
 
 class File(val filename: String) : Node() {
-
     private val _decls = mutableListOf<ClassDecl>()
-
     val decls: List<ClassDecl> get() = _decls
 
     override val tokens: List<Token> get() = decls.tokens
 
     override val start: Position get() = if (decls.isEmpty()) Position(1u, 1u, filename) else super.start
     override val end: Position get() = if (decls.isEmpty()) Position(1u, 1u, filename) else super.end
-}
 
-@JvmInline
-value class Identifier(val value: String)
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(
+        visitor, visitor.order, visitor.onBroken, *decls.toTypedArray()
+    )
+
+    override fun toString(indent: Int, builder: StringBuilder) {
+        builder.append(indent.indent, "File(${filename})").scope {
+            decls.forEach { it.toString(indent.next, builder) }
+        }
+    }
+}
 
 class GenericParams(
     val lsquare: Token,
@@ -71,12 +108,15 @@ class GenericParams(
         _types += type
     }
 
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(
+        visitor, visitor.order, visitor.onBroken, *types.toTypedArray()
+    )
+
     override val tokens: List<Token>
         get() = listOf(lsquare) + types.tokens + rsquare
 }
 
 class ClassBody(val isToken: Token, val endToken: Token) : Node() {
-
     private val _members = ArrayList<ClassMemberDecl>()
 
     val members: List<ClassMemberDecl> get() = _members
@@ -88,6 +128,10 @@ class ClassBody(val isToken: Token, val endToken: Token) : Node() {
     operator fun plusAssign(decl: Collection<ClassMemberDecl>) {
         _members += decl
     }
+
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(
+        visitor, visitor.order, visitor.onBroken, *members.toTypedArray()
+    )
 
     override val tokens: List<Token> get() = listOf(isToken) + members.tokens + endToken
 }
@@ -110,6 +154,10 @@ class Params(
         _params += params
     }
 
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(
+        visitor, visitor.order, visitor.onBroken, *params.toTypedArray()
+    )
+
     override val tokens: List<Token>
         get() {
             val res = ArrayList<Token>()
@@ -120,13 +168,26 @@ class Params(
         }
 }
 
+/**
+ * Actual parameter
+ */
 data class Argument(
     val expr: Expr,
     /**
      * comma before the param
      */
     val commaToken: Token? = null
-) : Node() {
+) : Node(), Typed {
+
+    override val type: Type
+        get() = expr.type
+
+    override fun specifyType(type: Type) {
+        expr.specifyType(type)
+    }
+
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, expr)
+
     override val tokens: List<Token>
         get() {
             val res = arrayListOf<Token>()
@@ -136,10 +197,12 @@ data class Argument(
         }
 }
 
-sealed class MethodBody(open val node: Node): Node() {
+sealed class MethodBody(open val node: Node) : Node() {
     class MBody(val body: Body) : MethodBody(body) {
         override val node: Body
             get() = body
+
+        override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, body)
 
         override val tokens: List<Token>
             get() = body.tokens
@@ -149,9 +212,13 @@ sealed class MethodBody(open val node: Node): Node() {
         override val node: Expr
             get() = expr
 
+        override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, expr)
+
         override val tokens: List<Token>
             get() = listOf(wideArrow) + expr.tokens
     }
+
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, node)
 }
 
 class Body(val isToken: Token? = null, val endToken: Token) : Node() {
@@ -166,29 +233,10 @@ class Body(val isToken: Token? = null, val endToken: Token) : Node() {
         _nodes += statement
     }
 
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(
+        visitor, visitor.order, visitor.onBroken, *nodes.toTypedArray()
+    )
+
     override val tokens: List<Token>
         get() = (isToken?.let { listOf(isToken) } ?: listOf()) + nodes.tokens + endToken
 }
-
-//class RefType(
-//    val identifierToken: Token,
-//    val genericParams: GenericParams? = null
-//) : Node(), Typed {
-//    override val tokens: List<Token>
-//        get() = listOf(identifierToken) + (genericParams?.tokens ?: emptyList())
-//
-//    private var _type: ClassType? = null
-//
-//    override val type: Type
-//        get() {
-//            ensureAfterSema()
-//            return _type!!
-//        }
-//
-//    val identifier: Identifier get() = Identifier(identifierToken.value)
-//
-//    override fun specifyType(type: Type) {
-//        require(type is ClassType)
-//        _type = type
-//    }
-//}

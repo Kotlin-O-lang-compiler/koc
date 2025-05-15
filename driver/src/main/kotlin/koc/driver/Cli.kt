@@ -10,6 +10,7 @@ import com.github.ajalt.clikt.parameters.types.path
 import java.nio.file.Path
 import koc.driver.api.koc
 import koc.utils.Diagnostics
+import koc.utils.KocOptions
 
 class Compiler : CliktCommand(help = "Options for running koc") {
     private val sourceFiles: List<Path> by argument(name = "sources")
@@ -20,6 +21,9 @@ class Compiler : CliktCommand(help = "Options for running koc") {
     private val dumpTokens by option("--dump-tokens")
         .flag(default = false)
 
+    private val dumpParse by option("--dump-parse")
+        .flag(default = false)
+
     private val stopOnError by option("--stop-on-error")
         .flag(default = false)
 
@@ -27,6 +31,7 @@ class Compiler : CliktCommand(help = "Options for running koc") {
         val diagnostics = Diagnostics()
         val options = KocOptions(
             dumpTokens = dumpTokens,
+            dumpParse = dumpParse,
             stopOnError = stopOnError,
         )
 

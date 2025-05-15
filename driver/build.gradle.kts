@@ -11,6 +11,8 @@ dependencies {
     implementation(libs.clikt)
 
     implementation(project(":lex"))
+    implementation(project(":parser"))
+    implementation(project(":sema"))
     implementation(project(":utils"))
 }
 

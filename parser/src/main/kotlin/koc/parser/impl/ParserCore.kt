@@ -4,6 +4,7 @@ import koc.lex.Token
 import koc.lex.TokenKind
 import koc.parser.LackOfTokenException
 import koc.parser.UnexpectedTokenException
+import koc.parser.ast.Node
 import koc.parser.nextPosition
 import koc.utils.Diagnostics
 
@@ -14,8 +15,10 @@ internal class ParserCore(private val diag: Diagnostics) {
 
     val currentTokens: List<Token> get() = tokens
 
+    val currentIdx: Int get() = idx
+
     val current: Token? get() = if (idx in tokens.indices) tokens[idx] else null
-    val next: Token? get() = if (idx + 1 in tokens.indices) tokens[idx + 1] else null
+    val next: Token? get() = if (nextNotCommentIdx() in tokens.indices) tokens[nextNotCommentIdx()] else null
 
     private var isBad = false
 
@@ -31,13 +34,18 @@ internal class ParserCore(private val diag: Diagnostics) {
     fun <T> withScope(scope: ParseScopeKind, action: ParserCore.() -> T): T {
         val scopeBefore = curScopeKind
         curScope += curScope.lastOrNull()?.let { it + 1 } ?: 0
-        scopeMap.putIfAbsent(curScope.last, 'a')
+        scopeMap.putIfAbsent(curScope.last(), 'a')
         curScopeKind = scope
 
         val res = action(this)
+        if (res is Node) {
+            res.specifyScope(this.scope)
+        } else if (res is Collection<*>) {
+            res.forEach { if (it is Node) it.specifyScope(this.scope) }
+        }
 
-        scopeMap[curScope.last] = scopeMap.getOrDefault(curScope.last, 'a').inc()
-        scopeMap -= curScope.last + 1
+        scopeMap[curScope.last()] = scopeMap.getOrDefault(curScope.last(), 'a').inc()
+        scopeMap -= curScope.last() + 1
         curScope.removeLast()
         curScopeKind = scopeBefore
         return res
@@ -78,12 +86,15 @@ internal class ParserCore(private val diag: Diagnostics) {
 
     fun next(): Token? {
         val nxt = next
-        nxt?.let { idx++ }
+        nxt?.let { idx = nextNotCommentIdx() }
         return nxt
     }
 
     private fun previous() {
         if (idx > 0) {
+            idx--
+        }
+        while (idx > 0 && current?.kind == TokenKind.COMMENT) {
             idx--
         }
     }
@@ -106,10 +117,17 @@ internal class ParserCore(private val diag: Diagnostics) {
         this.tokens += tokens
     }
 
-
-    data class ParseScope(val kind: ParseScopeKind, val value: String)
-
-    enum class ParseScopeKind {
-        CLASS, CLASS_BODY, VAR, EXPR, METHOD, BODY, DEFAULT, WHILE_BODY
+    private fun nextNotCommentIdx(): Int {
+        var increment = 1
+        while (tokens.size > idx + increment && tokens[idx + increment].kind == TokenKind.COMMENT) {
+            increment++
+        }
+        return idx + increment
     }
+}
+
+data class ParseScope(val kind: ParseScopeKind, val value: String)
+
+enum class ParseScopeKind {
+    CLASS, CLASS_BODY, VAR, METHOD, BODY, DEFAULT, WHILE_BODY
 }

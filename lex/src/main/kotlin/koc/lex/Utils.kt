@@ -1,5 +1,7 @@
 package koc.lex
 
+import koc.utils.Diagnostics
+import koc.utils.KocOptions
 import java.io.PrintStream
 
 
@@ -74,7 +76,6 @@ internal val StringBuilder.isReal: Boolean
         return true
     }
 
-
 fun Collection<Token>.dump(out: PrintStream = System.out) {
     var first = true
     for (token in this) {
@@ -83,3 +84,7 @@ fun Collection<Token>.dump(out: PrintStream = System.out) {
         first = false
     }
 }
+
+fun Lexer.Companion.fromOptions(
+    opts: KocOptions = KocOptions(), diag: Diagnostics = Diagnostics()
+): Lexer = LexerImpl(diag, opts.stopOnError)
