@@ -5,7 +5,7 @@ plugins {
 }
 
 dependencies {
-    implementation(project(":utils"))
+    implementation(project(":core"))
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.2.0")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.2.0")

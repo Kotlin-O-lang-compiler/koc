@@ -1,7 +1,9 @@
-package koc.parser.ast
+package koc.ast
 
 import koc.lex.Token
-import koc.parser.ast.visitor.Visitor
+import koc.lex.Window
+import koc.parser.ast.Identifier
+import koc.ast.visitor.Visitor
 import koc.parser.indent
 import koc.parser.next
 import koc.parser.scope
@@ -61,18 +63,8 @@ data class ClassDecl(
         ).toTypedArray()
     )
 
-    override val tokens: List<Token>
-        get() {
-            val tokens = arrayListOf<Token>()
-            tokens += classToken
-            tokens += identifierToken
-            if (hasExplicitSuperType) {
-                tokens += extendsToken!!
-                tokens += superTypeRef!!.tokens
-            }
-            tokens += body.tokens
-            return tokens
-        }
+    override val window: Window
+        get() = Window(classToken, body.tokens.last(), allTokens)
 
     override fun specifyType(type: Type) {
         require(type is ClassType)
@@ -127,8 +119,8 @@ data class FieldDecl(
 
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, varDecl)
 
-    override val tokens: List<Token>
-        get() = varDecl.tokens
+    override val window: Window
+        get() = varDecl.window
 
     override fun toString(indent: Int, builder: StringBuilder) {
         varDecl.toString(indent, builder)
@@ -157,14 +149,8 @@ data class ConstructorDecl(
         visitor, visitor.order, visitor.onBroken, *listOfNotNull(params, body).toTypedArray()
     )
 
-    override val tokens: List<Token>
-        get() {
-            val res = ArrayList<Token>()
-            res += thisToken
-            params?.let { res += it.tokens }
-            res += body.tokens
-            return res
-        }
+    override val window: Window
+        get() = Window(thisToken, body.tokens.last(), allTokens)
 }
 
 data class MethodDecl(
@@ -195,17 +181,8 @@ data class MethodDecl(
         visitor, visitor.order, visitor.onBroken, *listOfNotNull(params, retTypeRef, body).toTypedArray()
     )
 
-    override val tokens: List<Token>
-        get() {
-            val res = ArrayList<Token>()
-            res += keyword
-            res += identifierToken
-            params?.let { res += it.tokens }
-            colon?.let { res += it }
-            retTypeRef?.let { res += it.tokens }
-            body?.let { res += it.tokens }
-            return res
-        }
+    override val window: Window
+        get() = Window(keyword, body?.tokens?.last() ?: retTypeRef?.tokens?.last() ?: colon ?: params?.tokens?.last() ?: identifierToken, allTokens)
 }
 
 data class VarDecl(
@@ -236,8 +213,8 @@ data class VarDecl(
     val identifier: Identifier
         get() = Identifier(identifierToken.value)
 
-    override val tokens: List<Token>
-        get() = listOf(keyword, identifierToken, colonToken, *initializer.tokens.toTypedArray())
+    override val window: Window
+        get() = Window(keyword, initializer.tokens.last(), allTokens)
 
     override fun toString(indent: Int, builder: StringBuilder) {
         builder.append(indent.indent, "File(${identifier})").scope {
@@ -278,13 +255,8 @@ data class Param(
     override val rootType: ClassType
         get() = type.classType
 
-    override val tokens: List<Token>
-        get() {
-            val res = arrayListOf(identifierToken, colonToken)
-            res += typeRef.tokens
-            commaToken?.let { res += it }
-            return res
-        }
+    override val window: Window
+        get() = Window(identifierToken, commaToken ?: typeRef.tokens.last(), allTokens)
 }
 
 data class TypeParam(
@@ -293,11 +265,6 @@ data class TypeParam(
 ) : Node() {
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, typeRef)
 
-    override val tokens: List<Token>
-        get() {
-            val res = arrayListOf<Token>()
-            res += typeRef.tokens
-            commaToken?.let { res += it }
-            return res
-        }
+    override val window: Window
+        get() = Window(typeRef.tokens.first(), commaToken ?: typeRef.tokens.last(), allTokens)
 }

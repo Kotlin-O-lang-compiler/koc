@@ -1,5 +1,8 @@
-package koc.parser.ast
+package koc.ast
 
+import koc.parser.ast.Attribute
+import koc.parser.ast.Attributed
+import koc.parser.ast.Identifier
 import java.util.EnumSet
 
 interface Typed {

@@ -6,13 +6,13 @@ import koc.lex.Lexer
 import koc.lex.Token
 import koc.lex.fromOptions
 import koc.parser.Parser
-import koc.parser.ast.Node
+import koc.ast.Node
 import koc.parser.fromOptions
 import koc.parser.parse
 import koc.sema.TypeManager
 import koc.sema.semaStages
-import koc.utils.Diagnostics
-import koc.utils.KocOptions
+import koc.core.Diagnostics
+import koc.core.KocOptions
 import java.nio.file.Path
 import kotlin.io.path.name
 

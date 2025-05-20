@@ -9,8 +9,8 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.path
 import java.nio.file.Path
 import koc.driver.api.koc
-import koc.utils.Diagnostics
-import koc.utils.KocOptions
+import koc.core.Diagnostics
+import koc.core.KocOptions
 
 class Compiler : CliktCommand(help = "Options for running koc") {
     private val sourceFiles: List<Path> by argument(name = "sources")

@@ -1,22 +1,22 @@
 package koc.parser
 
 import koc.lex.Token
-import koc.parser.ast.Assignment
-import koc.parser.ast.BooleanLiteral
-import koc.parser.ast.ClassBody
-import koc.parser.ast.ClassDecl
-import koc.parser.ast.ClassMemberDecl
-import koc.parser.ast.ConstructorDecl
-import koc.parser.ast.Expr
-import koc.parser.ast.IfNode
-import koc.parser.ast.IntegerLiteral
-import koc.parser.ast.MethodDecl
-import koc.parser.ast.Node
-import koc.parser.ast.RealLiteral
-import koc.parser.ast.RefExpr
-import koc.parser.ast.ReturnNode
-import koc.parser.ast.VarDecl
-import koc.parser.ast.WhileNode
+import koc.ast.Assignment
+import koc.ast.BooleanLiteral
+import koc.ast.ClassBody
+import koc.ast.ClassDecl
+import koc.ast.ClassMemberDecl
+import koc.ast.ConstructorDecl
+import koc.ast.Expr
+import koc.ast.IfNode
+import koc.ast.IntegerLiteral
+import koc.ast.MethodDecl
+import koc.ast.Node
+import koc.ast.RealLiteral
+import koc.ast.RefExpr
+import koc.ast.ReturnNode
+import koc.ast.VarDecl
+import koc.ast.WhileNode
 
 interface Parser {
     fun parseNodes(tokens: List<Token>): List<Node>

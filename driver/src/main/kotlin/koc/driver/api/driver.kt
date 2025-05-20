@@ -3,10 +3,10 @@ package koc.driver.api
 import koc.driver.Kocpiler
 import koc.lex.Token
 import koc.lex.dump
-import koc.parser.ast.Node
+import koc.ast.Node
 import koc.parser.dump
-import koc.utils.Diagnostics
-import koc.utils.KocOptions
+import koc.core.Diagnostics
+import koc.core.KocOptions
 import java.nio.file.Path
 
 fun koc(

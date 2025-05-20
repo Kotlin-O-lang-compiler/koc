@@ -1,8 +1,8 @@
 package koc.test
 
 import koc.driver.Kocpiler
-import koc.parser.ast.ClassDecl
-import koc.utils.KocOptions
+import koc.ast.ClassDecl
+import koc.core.KocOptions
 import org.junit.jupiter.api.Assertions.assertEquals
 import kotlin.io.path.createTempFile
 import kotlin.io.path.writeText

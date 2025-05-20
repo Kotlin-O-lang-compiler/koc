@@ -1,4 +1,4 @@
-package koc.utils
+package koc.core
 
 data class KocOptions(
     val dumpTokens: Boolean = false,

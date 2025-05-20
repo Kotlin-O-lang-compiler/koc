@@ -1,6 +1,8 @@
 package koc.sema.diag
 
+import koc.core.Diagnostics
 import koc.lex.Lexer
+import koc.lex.formatTokens
 import koc.lex.fromOptions
 import koc.parser.Parser
 import koc.parser.fromOptions
@@ -8,7 +10,6 @@ import koc.sema.TypeManager
 import koc.sema.impl.ClassCollector
 import koc.sema.performSemaStage
 import koc.sema.semaVisitors
-import koc.utils.Diagnostics
 import org.junit.jupiter.api.BeforeEach
 import kotlin.test.Test
 import kotlin.test.assertFalse

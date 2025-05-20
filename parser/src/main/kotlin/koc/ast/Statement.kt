@@ -1,7 +1,8 @@
-package koc.parser.ast
+package koc.ast
 
 import koc.lex.Token
-import koc.parser.ast.visitor.Visitor
+import koc.lex.Window
+import koc.ast.visitor.Visitor
 import koc.parser.walk
 
 sealed class Statement : Node()
@@ -13,14 +14,8 @@ class Assignment(
 ) : Statement() {
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, expr)
 
-    override val tokens: List<Token>
-        get() {
-            val res = arrayListOf<Token>()
-            res += identifierToken
-            res += assignmentToken
-            res += expr.tokens
-            return res
-        }
+    override val window: Window
+        get() = Window(identifierToken, expr.tokens.last(), allTokens)
 }
 
 class ReturnNode(
@@ -29,13 +24,8 @@ class ReturnNode(
 ) : Statement() {
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, expr)
 
-    override val tokens: List<Token>
-        get() {
-            val res = arrayListOf<Token>()
-            res += keyword
-            expr?.let { res += it.tokens }
-            return res
-        }
+    override val window: Window
+        get() = Window(keyword, expr?.tokens?.last() ?: keyword, allTokens)
 }
 
 class WhileNode(
@@ -45,8 +35,8 @@ class WhileNode(
 ) : Statement() {
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, cond, body)
 
-    override val tokens: List<Token>
-        get() = listOf(keyword) + cond.tokens + body.tokens
+    override val window: Window
+        get() = Window(keyword, body.tokens.last(), allTokens)
 }
 
 class IfNode(
@@ -59,13 +49,6 @@ class IfNode(
         visitor, visitor.order, visitor.onBroken, cond, thenBody, elseBody
     )
 
-    override val tokens: List<Token>
-        get() {
-            val res = arrayListOf<Token>()
-            res += ifToken
-            res += cond.tokens
-            res += thenBody.tokens
-            elseBody?.let { res += it.tokens }
-            return res
-        }
+    override val window: Window
+        get() = Window(ifToken, elseBody?.tokens?.last() ?: thenBody.tokens.last(), allTokens)
 }

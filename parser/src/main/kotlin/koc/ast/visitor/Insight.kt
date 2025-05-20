@@ -1,4 +1,4 @@
-package koc.parser.ast.visitor
+package koc.ast.visitor
 
 enum class Insight {
     /**

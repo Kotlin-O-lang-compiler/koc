@@ -1,17 +1,22 @@
-package koc.parser.ast
+package koc.ast
 
 import koc.lex.Token
-import koc.parser.ast.visitor.Visitor
+import koc.ast.visitor.Visitor
 import koc.parser.impl.ParseScope
 import koc.parser.indent
 import koc.parser.next
 import koc.parser.scope
 import koc.parser.tokens
 import koc.parser.walk
-import koc.utils.Position
+import koc.core.Position
+import koc.lex.Tokens
+import koc.lex.Window
+import koc.parser.ast.Attribute
+import koc.parser.ast.Attributed
+import koc.parser.window
 import java.util.EnumSet
 
-sealed class Node : Attributed {
+sealed class Node() : Attributed {
     open val start: Position get() = tokens.first().start
     open val end: Position get() = tokens.last().start
 
@@ -21,7 +26,7 @@ sealed class Node : Attributed {
     private var _scope: ParseScope? = null
     val scope: ParseScope get() = _scope!!
 
-    val isBroken: Boolean get() = Attribute.BROKEN in attrs || hasInvalidToken
+    val isBroken: Boolean get() = Attribute.BROKEN in attrs || tokens.isEmpty() || hasInvalidToken
     val afterSema: Boolean get() = Attribute.AFTER_TYPE_CHECK in attrs
     val isBuiltIn: Boolean get() = Attribute.BUILTIN in attrs
     val inTypeCheck: Boolean get() = Attribute.IN_TYPE_CHECK in attrs
@@ -50,10 +55,26 @@ sealed class Node : Attributed {
     }
 
     fun specifyScope(scope: ParseScope) {
+        if (_scope != null) return
         _scope = scope
     }
 
-    abstract val tokens: List<Token>
+    abstract val window: Window
+    val tokens: List<Token>
+        get() = window.tokens
+
+    private var _allTokens: Tokens? = null
+    protected val allTokens: Tokens
+        get() = _allTokens!!
+
+    fun specifyTokens(tokens: Tokens) {
+        if (_allTokens != null) return
+        _allTokens = tokens
+    }
+
+    fun specifyTokens(tokens: List<Token>) {
+        specifyTokens(Tokens(tokens))
+    }
 
     abstract fun <T> visit(visitor: Visitor<T>): T?
 
@@ -76,7 +97,8 @@ class File(val filename: String) : Node() {
     private val _decls = mutableListOf<ClassDecl>()
     val decls: List<ClassDecl> get() = _decls
 
-    override val tokens: List<Token> get() = decls.tokens
+    override val window: Window
+        get() = decls.window
 
     override val start: Position get() = if (decls.isEmpty()) Position(1u, 1u, filename) else super.start
     override val end: Position get() = if (decls.isEmpty()) Position(1u, 1u, filename) else super.end
@@ -112,8 +134,8 @@ class GenericParams(
         visitor, visitor.order, visitor.onBroken, *types.toTypedArray()
     )
 
-    override val tokens: List<Token>
-        get() = listOf(lsquare) + types.tokens + rsquare
+    override val window: Window
+        get() = Window(lsquare, rsquare, allTokens)
 }
 
 class ClassBody(val isToken: Token, val endToken: Token) : Node() {
@@ -133,7 +155,8 @@ class ClassBody(val isToken: Token, val endToken: Token) : Node() {
         visitor, visitor.order, visitor.onBroken, *members.toTypedArray()
     )
 
-    override val tokens: List<Token> get() = listOf(isToken) + members.tokens + endToken
+    override val window: Window
+        get() = Window(isToken, endToken, allTokens)
 }
 
 /**
@@ -158,14 +181,8 @@ class Params(
         visitor, visitor.order, visitor.onBroken, *params.toTypedArray()
     )
 
-    override val tokens: List<Token>
-        get() {
-            val res = ArrayList<Token>()
-            res += lparenToken
-            res += params.tokens
-            res += rparenToken
-            return res
-        }
+    override val window: Window
+        get() = Window(lparenToken, rparenToken, allTokens)
 }
 
 /**
@@ -178,7 +195,6 @@ data class Argument(
      */
     val commaToken: Token? = null
 ) : Node(), Typed {
-
     override val type: Type
         get() = expr.type
 
@@ -188,13 +204,8 @@ data class Argument(
 
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, expr)
 
-    override val tokens: List<Token>
-        get() {
-            val res = arrayListOf<Token>()
-            res += expr.tokens
-            commaToken?.let { res += it }
-            return res
-        }
+    override val window: Window
+        get() = Window(expr.tokens.first(), commaToken ?: expr.tokens.last(), allTokens)
 }
 
 sealed class MethodBody(open val node: Node) : Node() {
@@ -204,8 +215,8 @@ sealed class MethodBody(open val node: Node) : Node() {
 
         override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, body)
 
-        override val tokens: List<Token>
-            get() = body.tokens
+        override val window: Window
+            get() = body.window
     }
 
     class MExpr(val wideArrow: Token, val expr: Expr) : MethodBody(expr) {
@@ -214,8 +225,8 @@ sealed class MethodBody(open val node: Node) : Node() {
 
         override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, expr)
 
-        override val tokens: List<Token>
-            get() = listOf(wideArrow) + expr.tokens
+        override val window: Window
+            get() = Window(wideArrow, expr.tokens.last(), allTokens)
     }
 
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, node)
@@ -237,6 +248,6 @@ class Body(val isToken: Token? = null, val endToken: Token) : Node() {
         visitor, visitor.order, visitor.onBroken, *nodes.toTypedArray()
     )
 
-    override val tokens: List<Token>
-        get() = (isToken?.let { listOf(isToken) } ?: listOf()) + nodes.tokens + endToken
+    override val window: Window
+        get() = Window(isToken ?: nodes.tokens.first(), endToken, allTokens)
 }

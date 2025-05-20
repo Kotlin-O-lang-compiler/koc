@@ -1,10 +1,14 @@
-package koc.parser.ast
+package koc.ast
 
 import koc.lex.Token
 import koc.lex.TokenKind
-import koc.parser.ast.visitor.Visitor
-import koc.parser.tokens
+import koc.lex.Tokens
+import koc.lex.Window
+import koc.parser.ast.Attribute
+import koc.parser.ast.Identifier
+import koc.ast.visitor.Visitor
 import koc.parser.walk
+import kotlin.collections.plusAssign
 
 
 sealed class Expr : Node(), Typed
@@ -14,8 +18,8 @@ class InvalidExpr : Expr() {
         enable(Attribute.BROKEN)
     }
 
-    override val tokens: List<Token>
-        get() = listOf()
+    override val window: Window
+        get() = Window(0, 0, Tokens(emptyList()))
 
     private var _type: ClassType? = null
 
@@ -56,8 +60,8 @@ data class RefExpr(val identifierToken: Token, val generics: GenericParams? = nu
     val isThis: Boolean
         get() = identifierToken.kind == TokenKind.THIS
 
-    override val tokens: List<Token>
-        get() = listOf(identifierToken) + (generics?.tokens ?: listOf())
+    override val window: Window
+        get() = Window(identifierToken, generics?.tokens?.last() ?: identifierToken, allTokens)
 
     override fun specifyType(type: Type) {
         require(type is ClassType)
@@ -74,7 +78,8 @@ class IntegerLiteral(val token: Token) : Expr() {
             return token.value.toLong()
         }
 
-    override val tokens: List<Token> get() = listOf(token)
+    override val window: Window
+        get() = Window(token, token, allTokens)
 
     private var _type: ClassType? = null
 
@@ -102,7 +107,8 @@ class RealLiteral(val token: Token) : Expr() {
             return token.value.toDouble()
         }
 
-    override val tokens: List<Token> get() = listOf(token)
+    override val window: Window
+        get() = Window(token, token, allTokens)
 
     private var _type: ClassType? = null
 
@@ -130,7 +136,8 @@ class BooleanLiteral(val token: Token) : Expr() {
             return token.kind == TokenKind.TRUE
         }
 
-    override val tokens: List<Token> get() = listOf(token)
+    override val window: Window
+        get() = Window(token, token, allTokens)
 
     private var _type: ClassType? = null
 
@@ -175,8 +182,8 @@ class CallExpr(val ref: RefExpr, val lparen: Token, val rparen: Token) : Expr() 
 
     val isConstructorCall: Boolean get() = Attribute.CONSTRUCTOR_CALL in attrs
 
-    override val tokens: List<Token>
-        get() = ref.tokens + lparen + args.tokens + rparen
+    override val window: Window
+        get() = Window(ref.tokens.first(), rparen, allTokens)
 
     private var _type: ClassType? = null
 
@@ -210,8 +217,8 @@ class MemberAccessExpr(
 
     val isCall: Boolean get() = member is CallExpr || (member is MemberAccessExpr && member.isCall)
 
-    override val tokens: List<Token>
-        get() = left.tokens + dot + member.tokens
+    override val window: Window
+        get() = Window(left.tokens.first(), member.tokens.last(), allTokens)
 
     private var _type: ClassType? = null
 

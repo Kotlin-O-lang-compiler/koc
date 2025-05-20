@@ -1,9 +1,9 @@
 package koc.sema
 
-import koc.parser.ast.Node
-import koc.parser.ast.visitor.Visitor
+import koc.ast.Node
+import koc.ast.visitor.Visitor
 import koc.sema.impl.ClassCollector
-import koc.utils.Diagnostics
+import koc.core.Diagnostics
 
 fun performSema(nodes: List<Node>, typeManager: TypeManager, diag: Diagnostics) {
     semaStages(typeManager, diag).forEach { stage -> stage(nodes) }

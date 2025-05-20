@@ -1,6 +1,6 @@
 package koc.sema
 
-import koc.parser.ast.visitor.Visitor
+import koc.ast.visitor.Visitor
 
 interface TypeChecker : Visitor<Unit> {
 

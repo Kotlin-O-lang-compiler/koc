@@ -2,15 +2,15 @@ package koc.parser
 
 import koc.lex.Token
 import koc.lex.TokenKind
-import koc.parser.ast.CallExpr
-import koc.parser.ast.IntegerLiteral
-import koc.parser.ast.InvalidExpr
-import koc.parser.ast.MemberAccessExpr
-import koc.parser.ast.RealLiteral
-import koc.parser.ast.RefExpr
+import koc.ast.CallExpr
+import koc.ast.IntegerLiteral
+import koc.ast.InvalidExpr
+import koc.ast.MemberAccessExpr
+import koc.ast.RealLiteral
+import koc.ast.RefExpr
 import koc.parser.impl.ParserImpl
-import koc.utils.Diagnostics
-import koc.utils.Position
+import koc.core.Diagnostics
+import koc.core.Position
 import org.junit.jupiter.api.BeforeEach
 import kotlin.test.Test
 import kotlin.test.assertEquals

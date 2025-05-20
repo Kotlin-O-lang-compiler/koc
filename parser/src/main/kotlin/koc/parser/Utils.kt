@@ -2,14 +2,16 @@ package koc.parser
 
 import koc.lex.Token
 import koc.parser.ast.Attribute
-import koc.parser.ast.Node
-import koc.parser.ast.visitor.Insight
-import koc.parser.ast.visitor.Order
-import koc.parser.ast.visitor.Visitor
+import koc.ast.Node
+import koc.ast.visitor.Insight
+import koc.ast.visitor.Order
+import koc.ast.visitor.Visitor
 import koc.parser.impl.ParserImpl
-import koc.utils.Diagnostics
-import koc.utils.KocOptions
-import koc.utils.Position
+import koc.core.Diagnostics
+import koc.core.KocOptions
+import koc.core.Position
+import koc.lex.Window
+import koc.lex.formatTokens
 import java.io.PrintStream
 
 val List<Node>.tokens: List<Token>
@@ -21,84 +23,11 @@ val List<Node>.tokens: List<Token>
         return res
     }
 
-private const val UNDERLINE_CHAR = "~"
-
-// TODO: add case when bad token is not in tokens (like expected token but absent)
-fun formatAsBadToken(bad: Token, tokens: List<Token>, message: String? = null): String {
-    val res = StringBuilder()
-
-    if (tokens.isEmpty()) {
-        message?.let { msg ->
-            res.append(msg)
-        }
-        return res.toString()
+val List<Node>.window: Window
+    get() {
+        return first().window + last().window
     }
 
-    val linNoWidth = tokens.last().end.line.toString().length
-    val lineIdent = " ".repeat(linNoWidth + 3)
-    val leadingLines = 2u
-    var badFound = false
-    var line = if (tokens.isNotEmpty() && tokens.first().start.line > 0u) tokens.first().start.line.toInt() else 1
-    var column = 1
-    var firstTokenInLine = true
-    var stopAfterLine = false
-
-    fun onBadFound() {
-        res.appendLine()
-        val ident = " ".repeat(bad.start.column.toInt() - 1)
-        res.append(lineIdent).append(ident).append(UNDERLINE_CHAR.repeat(bad.length)).appendLine()
-
-        message?.let { msg ->
-            res.appendLine(msg)
-        }
-        badFound = false
-    }
-
-    for (token in tokens) {
-        if (token.start.line + leadingLines <= bad.start.line) continue
-        if (token.start.line > line.toUInt()) {
-            column = 1
-
-            if (badFound) {
-                onBadFound()
-                if (stopAfterLine) break
-            }
-
-            val lineDiff = token.start.line.toInt() - line
-            if (lineDiff > 1) {
-                res.appendLine().append(lineIdent).appendLine("...")
-//                res.append("\n".repeat(lineDiff - 1))
-            } else {
-                res.appendLine()
-            }
-            firstTokenInLine = true
-        }
-
-        if (firstTokenInLine) {
-            res.append("${token.start.line} | ")
-            firstTokenInLine = false
-        }
-
-        if (token.start.column > column.toUInt()) {
-            val ident = " ".repeat(token.start.column.toInt() - column)
-            res.append(ident)
-        }
-        res.append(token.value)
-        column = token.end.column.toInt() + 1
-        line = token.end.line.toInt()
-
-        if (bad == token) {
-            badFound = true
-            stopAfterLine = true
-        }
-    }
-
-    if (badFound) {
-        onBadFound()
-    }
-
-    return res.toString()
-}
 
 fun Position?.next(file: String = "file"): Position {
     return this?.let {
@@ -170,5 +99,15 @@ fun <T: Node, R> T.walk(visitor: Visitor<R>, order: Order = Order.TOP_DOWN, onBr
 }
 
 fun Parser.Companion.fromOptions(
-    @Suppress("unused") opts: KocOptions = KocOptions(), diag: Diagnostics = Diagnostics()
+    @Suppress("unused") opts: KocOptions = KocOptions(), diag: Diagnostics// = Diagnostics()
 ): Parser = ParserImpl(diag)
+
+fun Diagnostics.load(tokens: List<Token>) {
+    val code = formatTokens(tokens, 0, tokens.size - 1, showLines = false)
+    load(code)
+}
+
+fun Diagnostics.loadIfEmpty(tokens: List<Token>) {
+    val code = formatTokens(tokens, 0, tokens.size - 1, showLines = false)
+    loadIfEmpty(code)
+}

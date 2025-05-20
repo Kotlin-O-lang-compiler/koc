@@ -5,16 +5,16 @@ import koc.lex.Token
 import koc.lex.TokenKind
 import koc.parser.Parser
 import koc.parser.ast.Attribute
-import koc.parser.ast.ClassBody
-import koc.parser.ast.ClassDecl
-import koc.parser.ast.ClassType
+import koc.ast.ClassBody
+import koc.ast.ClassDecl
+import koc.ast.ClassType
 import koc.sema.TypeManager.Companion.ANY_VALUE_ID
 import koc.sema.TypeManager.Companion.BOOLEAN_ID
 import koc.sema.TypeManager.Companion.CLASS_ID
 import koc.sema.TypeManager.Companion.INTEGER_ID
 import koc.sema.TypeManager.Companion.REAL_ID
-import koc.utils.InternalError
-import koc.utils.Position
+import koc.core.InternalError
+import koc.core.Position
 
 class TypeManager(lexer: Lexer, parser: Parser) {
     val classType: ClassType

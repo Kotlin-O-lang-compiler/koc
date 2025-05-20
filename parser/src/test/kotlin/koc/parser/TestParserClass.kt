@@ -2,17 +2,15 @@ package koc.parser
 
 import koc.lex.Token
 import koc.lex.TokenKind
-import koc.parser.ast.BooleanLiteral
-import koc.parser.ast.FieldDecl
-import koc.parser.ast.IntegerLiteral
-import koc.parser.ast.InvalidExpr
-import koc.parser.ast.MethodBody
-import koc.parser.ast.MethodDecl
-import koc.parser.ast.RealLiteral
-import koc.parser.ast.VarDecl
+import koc.ast.BooleanLiteral
+import koc.ast.FieldDecl
+import koc.ast.IntegerLiteral
+import koc.ast.MethodBody
+import koc.ast.MethodDecl
+import koc.ast.VarDecl
 import koc.parser.impl.ParserImpl
-import koc.utils.Diagnostics
-import koc.utils.Position
+import koc.core.Diagnostics
+import koc.core.Position
 import org.junit.jupiter.api.BeforeEach
 import kotlin.test.Test
 import kotlin.test.assertEquals

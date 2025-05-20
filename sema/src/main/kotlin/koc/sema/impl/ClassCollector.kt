@@ -1,13 +1,14 @@
 package koc.sema.impl
 
+import koc.core.Diagnostics
+import koc.lex.diag
 import koc.parser.ast.Attribute
-import koc.parser.ast.ClassDecl
-import koc.parser.ast.visitor.AbstractVoidVisitor
-import koc.parser.ast.visitor.Insight
+import koc.ast.ClassDecl
+import koc.ast.visitor.AbstractVoidVisitor
+import koc.ast.visitor.Insight
 import koc.sema.TypeManager
-import koc.sema.exception.BuiltInClassRedefinitionException
-import koc.sema.exception.ClassRedefinitionException
-import koc.utils.Diagnostics
+import koc.sema.diag.BuiltInClassRedefinition
+import koc.sema.diag.ClassRedefinition
 
 class ClassCollector(
     private val typeManager: TypeManager, private val diag: Diagnostics
@@ -15,14 +16,11 @@ class ClassCollector(
     override fun visit(classDecl: ClassDecl) {
         val name = classDecl.identifier.value
         if (name in TypeManager.builtinTypes) {
-            diag.error(BuiltInClassRedefinitionException(classDecl), classDecl.identifierToken.start)
+            diag.diag(BuiltInClassRedefinition(classDecl), classDecl.identifierToken)
             classDecl.enable(Attribute.BROKEN)
         } else {
             if (typeManager.hasUserDefinition(name)) {
-                diag.error(
-                    ClassRedefinitionException(classDecl, typeManager.getUserDefinition(name)),
-                    classDecl.identifierToken.start
-                )
+                diag.diag(ClassRedefinition(classDecl, typeManager.getUserDefinition(name)), classDecl.identifierToken)
                 classDecl.enable(Attribute.BROKEN)
             }
         }

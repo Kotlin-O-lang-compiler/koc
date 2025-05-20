@@ -1,6 +1,6 @@
 package koc
 
-import koc.parser.ast.ClassType
+import koc.ast.ClassType
 
 fun ClassType.isSubtype(of: ClassType): Boolean {
     var child: ClassType? = this

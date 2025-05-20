@@ -1,7 +1,9 @@
 package koc.lex
 
-import koc.utils.Diagnostics
-import koc.utils.Position
+import koc.core.Diagnostics
+import koc.core.Position
+import koc.lex.diag.IntegerLiteralOutOfRange
+import koc.lex.diag.UnexpectedToken
 import java.io.File
 
 /**
@@ -25,12 +27,14 @@ class LexerImpl(
     override fun open(program: File) {
         checkNotOpened()
         this._reader = CharReader(program.inputStream())
+        diag.load(program.readText())
         sourceName = program.name
     }
 
     override fun open(program: String, programName: String) {
         checkNotOpened()
         this._reader = CharReader(program.byteInputStream())
+        diag.load(program)
         sourceName = programName
     }
 
@@ -160,13 +164,11 @@ class LexerImpl(
             state == LexerState.INTEGER -> {
                 val absolute = buffer.toString().toBigDecimalOrNull()
                 if (absolute == null || absolute > Token.INT_MAX.toBigDecimal() || absolute < Token.INT_MIN.toBigDecimal()) {
-                    if (absolute == null) diag.error(
-                        UnexpectedTokenException(
-                            buffer.toString(),
-                            expected = listOf(TokenKind.INT_LITERAL)
-                        ), position
+                    if (absolute == null) diag.diag(
+                        UnexpectedToken(buffer.toString(), listOf(TokenKind.INT_LITERAL)), position,
+                        position.plus(columns = buffer.length.toUInt() - 1u)
                     )
-                    else diag.error(IntegerLiteralOutOfRangeException(position, buffer.toString()), position)
+                    else diag.diag(IntegerLiteralOutOfRange(buffer.toString()), position, position.plus(columns = buffer.length.toUInt() - 1u))
                     next = Token(buffer.toString(), TokenKind.INVALID, position)
                 } else {
                     next = Token(absolute.toString(), TokenKind.INT_LITERAL, position)
@@ -176,7 +178,7 @@ class LexerImpl(
             state == LexerState.REAL -> {
                 val absolute = buffer.toString().toDoubleOrNull()
                 if (absolute == null) {
-                    diag.error(UnexpectedTokenException(buffer.toString(), listOf(TokenKind.REAL_LITERAL)), position)
+                    diag.diag(UnexpectedToken(buffer.toString(), listOf(TokenKind.REAL_LITERAL)), position, position.plus(columns = buffer.length.toUInt() - 1u))
                     next = Token(buffer.toString(), TokenKind.INVALID, position)
                 } else {
                     next = Token(absolute.toString(), TokenKind.REAL_LITERAL, position)
@@ -184,7 +186,7 @@ class LexerImpl(
             }
 
             else -> {
-                diag.error(UnexpectedTokenException(buffer.toString()), position)
+                diag.diag(UnexpectedToken(buffer.toString()), position, position.plus(columns = buffer.length.toUInt() - 1u))
                 next = Token(buffer.toString(), TokenKind.INVALID, position)
             }
         }

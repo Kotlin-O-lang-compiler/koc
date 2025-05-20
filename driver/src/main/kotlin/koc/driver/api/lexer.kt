@@ -1,11 +1,11 @@
 package koc.driver.api
 
 import java.nio.file.Path
-import koc.utils.KocOptions
+import koc.core.KocOptions
 import koc.lex.Lexer
 import koc.lex.LexerImpl
 import koc.lex.Token
-import koc.utils.Diagnostics
+import koc.core.Diagnostics
 
 fun lex(
     source: Path,

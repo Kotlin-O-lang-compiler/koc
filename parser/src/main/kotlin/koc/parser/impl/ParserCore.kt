@@ -2,11 +2,13 @@ package koc.parser.impl
 
 import koc.lex.Token
 import koc.lex.TokenKind
-import koc.parser.LackOfTokenException
-import koc.parser.UnexpectedTokenException
-import koc.parser.ast.Node
+import koc.ast.Node
 import koc.parser.nextPosition
-import koc.utils.Diagnostics
+import koc.core.Diagnostics
+import koc.lex.Tokens
+import koc.lex.diag
+import koc.parser.diag.LackOfToken
+import koc.parser.diag.UnexpectedToken
 
 internal class ParserCore(private val diag: Diagnostics) {
     private var idx = -1
@@ -20,6 +22,9 @@ internal class ParserCore(private val diag: Diagnostics) {
     val current: Token? get() = if (idx in tokens.indices) tokens[idx] else null
     val next: Token? get() = if (nextNotCommentIdx() in tokens.indices) tokens[nextNotCommentIdx()] else null
 
+    val allTokens: Tokens
+        get() = Tokens(tokens)
+
     private var isBad = false
 
     val scope: ParseScope
@@ -31,18 +36,16 @@ internal class ParserCore(private val diag: Diagnostics) {
 
     private val scopeMap = mutableMapOf<Int, Char>(0 to 'a')
 
-    fun <T> withScope(scope: ParseScopeKind, action: ParserCore.() -> T): T {
+    fun <T : Node> parse(action: ParserCore.() -> T): T = action(this).apply { fillInfo() }
+    fun <T : Node, L : Collection<T>> parse(action: ParserCore.() -> L): L = action(this).apply { fillInfo() }
+
+    private inline fun <T> inScope(scope: ParseScopeKind, crossinline action: ParserCore.() -> T): T {
         val scopeBefore = curScopeKind
         curScope += curScope.lastOrNull()?.let { it + 1 } ?: 0
         scopeMap.putIfAbsent(curScope.last(), 'a')
         curScopeKind = scope
 
-        val res = action(this)
-        if (res is Node) {
-            res.specifyScope(this.scope)
-        } else if (res is Collection<*>) {
-            res.forEach { if (it is Node) it.specifyScope(this.scope) }
-        }
+        val res = action()
 
         scopeMap[curScope.last()] = scopeMap.getOrDefault(curScope.last(), 'a').inc()
         scopeMap -= curScope.last() + 1
@@ -51,17 +54,25 @@ internal class ParserCore(private val diag: Diagnostics) {
         return res
     }
 
+    fun <T : Node> withScope(scope: ParseScopeKind, action: ParserCore.() -> T): T = inScope(scope) {
+        parse(action).fillInfo()
+    }
+
+    fun <T : Node, L : Collection<T>> withScope(scope: ParseScopeKind, action: ParserCore.() -> L): L = inScope(scope) {
+        parse(action).fillInfo()
+    }
+
     fun expect(tokenKind: TokenKind, lookahead: Boolean = false): Token {
         if (isBad) return Token.invalid
         val nxt = next()
         if (lookahead) previous()
         if (nxt == null) {
             isBad = true
-            diag.error(LackOfTokenException(tokenKind, tokens), tokens.nextPosition)
+            diag.diag(LackOfToken(tokenKind), tokens.nextPosition)
             return Token.invalid
         } else if (nxt.kind != tokenKind) {
             isBad = true
-            diag.error(UnexpectedTokenException(nxt, tokenKind, tokens), nxt.start)
+            diag.diag(UnexpectedToken(nxt, tokenKind), nxt)
             return Token.invalid
         }
 
@@ -76,10 +87,10 @@ internal class ParserCore(private val diag: Diagnostics) {
         val nxt = next()
         if (nxt == null) {
             isBad = true
-            diag.error(LackOfTokenException(kinds, tokens), tokens.nextPosition)
+            diag.diag(LackOfToken(kinds), tokens.nextPosition)
         } else {
             isBad = true
-            diag.error(UnexpectedTokenException(nxt, kinds, tokens), nxt.start)
+            diag.diag(UnexpectedToken(nxt, kinds), nxt)
         }
         return Token.invalid
     }
@@ -123,6 +134,20 @@ internal class ParserCore(private val diag: Diagnostics) {
             increment++
         }
         return idx + increment
+    }
+
+    fun <T: Node> T.fillInfo(): T {
+        specifyScope(this@ParserCore.scope)
+        specifyTokens(this@ParserCore.tokens)
+        return this
+    }
+
+    fun <T: Node, L : Collection<T>> L.fillInfo(): L {
+        forEach { node ->
+            node.specifyScope(this@ParserCore.scope)
+            node.specifyTokens(this@ParserCore.tokens)
+        }
+        return this
     }
 }
 

@@ -3,8 +3,8 @@ plugins {
 }
 
 dependencies {
+    implementation(project(":core"))
     implementation(project(":lex"))
-    implementation(project(":utils"))
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.2.0")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.2.0")
