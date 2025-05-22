@@ -184,9 +184,9 @@ fun formatTokens(
     fun getLineNoPrefix(line: UInt) = "${line.toString().padEnd(lineNoWidth)} | "
 
     if (tokens.isNotEmpty() && showFileName) {
-        res.appendLine("$lineNoIndent${tokens.first().start.filename}")
+        res.appendLine("${" ".repeat(lineNoIndent.length - 3)}-> ${tokens.first().start.filename}")
     } else if (tokens.isNotEmpty() && showHighlightedPos) {
-        res.appendLine("$lineNoIndent${tokens[highlightStart!!].start.toVerboseString()}")
+        res.appendLine("${" ".repeat(lineNoIndent.length - 3)}-> ${tokens[highlightStart!!].start.toVerboseString()}")
     }
 
     for (i in tokens.indices) {

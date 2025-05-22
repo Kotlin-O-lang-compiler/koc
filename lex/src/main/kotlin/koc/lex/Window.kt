@@ -27,7 +27,8 @@ data class Window(val start: Int, val end: Int, val allTokens: Tokens) {
 
     fun areSameTokens(other: Window): Boolean = allTokens == other.allTokens
 
-    operator fun plus(other: Window): Window {
+    operator fun plus(other: Window?): Window {
+        if (other == null) return this
         check(areSameTokens(other))
         val extStart = min(start, other.start)
         val extEnd = max(end, other.end)

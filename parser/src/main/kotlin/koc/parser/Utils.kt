@@ -73,10 +73,11 @@ fun <T: Node, R> T.walk(visitor: Visitor<R>, order: Order = Order.TOP_DOWN, onBr
     }
 
     var childRes: R? = null
-    if (isBroken && onBroken == Insight.STOP) visitor.stop()
+    if (isBroken && onBroken == Insight.STOP || result is Insight && result == Insight.STOP) visitor.stop()
     for (child in children) {
-        if (!visitor.shouldVisitChildren || isBroken && onBroken == Insight.SKIP) break
+        if (!visitor.shouldVisitChildren || isBroken && onBroken == Insight.SKIP || result is Insight && result == Insight.SKIP) break
         childRes = child?.visit(visitor)
+        if (childRes is Insight && childRes == Insight.STOP) visitor.stop()
     }
     if (visitor.insight == Insight.SKIP) visitor.reset()
     if (isBroken && onBroken == Insight.STOP) visitor.stop()

@@ -125,8 +125,7 @@ class TestDiag {
                     " -> file:3:4",
                     "2 |    is",
                     "3 |    class",
-                    "       ~~~~~",
-                    "4 | end"
+                    "       ~~~~~"
                 )
             }
         )

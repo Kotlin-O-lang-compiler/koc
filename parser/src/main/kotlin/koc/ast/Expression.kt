@@ -60,6 +60,15 @@ data class RefExpr(val identifierToken: Token, val generics: GenericParams? = nu
     val isThis: Boolean
         get() = identifierToken.kind == TokenKind.THIS
 
+    private var _ref: Decl? = null
+    val ref: Decl?
+        get() = _ref
+
+    fun specifyRef(decl: Decl) {
+        require(_ref == null)
+        _ref = decl
+    }
+
     override val window: Window
         get() = Window(identifierToken, generics?.tokens?.last() ?: identifierToken, allTokens)
 

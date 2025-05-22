@@ -4,10 +4,15 @@ import java.io.PrintStream
 
 class Diagnostics(code: String = "", private val outstream: PrintStream = System.out, private val errstream: PrintStream = System.err) {
     private val diags = mutableListOf<DiagMessage>()
+    val diagnostics: List<DiagMessage> get() = diags
 
     val hasErrors get() = diags.any { diag -> diag.verbosity == DiagKind.Verbosity.ERROR }
     val hasWarnings get() = diags.any { diag -> diag.verbosity == DiagKind.Verbosity.ERROR }
     val hasAny get() = diags.isNotEmpty()
+
+    inline fun <reified T : DiagKind> has(): Boolean {
+        return diagnostics.any { it.kind is T }
+    }
 
     private var code = code.lines()
 
@@ -33,11 +38,11 @@ class Diagnostics(code: String = "", private val outstream: PrintStream = System
     }
 
     fun diag(msg: DiagMessage, pos: Position) = add(msg) { out ->
-        out.println(formatCode(code, pos, pos, pos, pos, msg.extraMessage, leadingLines = 1u, trailingLines = 1u))
+        out.println(formatCode(code, pos, pos, pos, pos, msg.extraMessage, leadingLines = 1u, trailingLines = 0u))
     }
 
     fun diag(msg: DiagMessage, start: Position, end: Position) = add(msg) { out ->
-        out.println(formatCode(code, start, end, start, end, msg.extraMessage, leadingLines = 1u, trailingLines = 1u, showHighlightedPos = true))
+        out.println(formatCode(code, start, end, start, end, msg.extraMessage, leadingLines = 1u, trailingLines = 0u, showHighlightedPos = true))
     }
 
     fun clear() {
@@ -65,7 +70,8 @@ fun formatCode(
     require(highlightStart == null || highlightStart <= highlightEnd!!)
     require(highlightStart == null || start <= highlightStart && highlightEnd!! <= end)
     require(start <= end)
-    require(Position(1u, 1u) <= start && end <= Position(code.lastIndex.toUInt() + 1u, code.last().lastIndex.toUInt() + 1u))
+//    require(Position(1u, 1u) <= start && end <= Position(code.lastIndex.toUInt() + 1u, code.last().lastIndex.toUInt() + 1u))
+    require(Position(1u, 1u) <= start && end <= Position(code.lastIndex.toUInt() + 1u, UInt.MAX_VALUE))
     require(showHighlightedPos == false || highlightStart != null)
 
     val res = StringBuilder()

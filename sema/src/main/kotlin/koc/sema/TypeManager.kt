@@ -15,22 +15,24 @@ import koc.sema.TypeManager.Companion.INTEGER_ID
 import koc.sema.TypeManager.Companion.REAL_ID
 import koc.core.InternalError
 import koc.core.Position
+import koc.parser.ast.Identifier
+import koc.parser.impl.ParseScope
 
 class TypeManager(lexer: Lexer, parser: Parser) {
     val classType: ClassType
-        get() = ClassType(classDecl, null)
+        get() = classDecl.type
 
     val anyValueType: ClassType
-        get() = ClassType(anyValueDecl, classType)
+        get() = anyValueDecl.type
 
     val intType: ClassType
-        get() = ClassType(intDecl, anyValueType)
+        get() = intDecl.type
 
     val boolType: ClassType
-        get() = ClassType(boolDecl, anyValueType)
+        get() = boolDecl.type
 
     val realType: ClassType
-        get() = ClassType(realDecl, anyValueType)
+        get() = realDecl.type
 
     val invalidType: ClassType
         get() = ClassType(invalidDecl, null)
@@ -45,6 +47,25 @@ class TypeManager(lexer: Lexer, parser: Parser) {
         userDefinitions[userDefinition.identifier.value] = userDefinition
     }
 
+    fun hasDefinition(name: String): Boolean = name in userDefinitions || name in builtInDecls
+
+    fun hasDefinition(name: Identifier) = hasDefinition(name.value)
+
+    fun getDefinition(name: String): ClassDecl = builtInDecls[name] ?: getUserDefinition(name)
+
+    fun getDefinition(name: Identifier) = getDefinition(name.value)
+
+    private val builtInDecls by lazy {
+        mutableMapOf<String, ClassDecl>(
+            classDecl.identifier.value to classDecl,
+            anyValueDecl.identifier.value to anyValueDecl,
+            intDecl.identifier.value to intDecl,
+            boolDecl.identifier.value to boolDecl,
+            realDecl.identifier.value to realDecl,
+            invalidDecl.identifier.value to invalidDecl
+        )
+    }
+
     private val types by lazy {
         mutableMapOf<String, ClassType>(
             classType.identifier.value to classType,
@@ -56,50 +77,75 @@ class TypeManager(lexer: Lexer, parser: Parser) {
         )
     }
 
-    fun getType(name: String): ClassType = types[name]!!
+    fun getType(name: String): ClassType = types[name] ?: invalidType
+
+    fun getType(name: Identifier) = getType(name.value)
 
     fun hasType(name: String): Boolean = name in types
 
+    fun hasType(name: Identifier) = hasType(name.value)
+
     internal fun learn(type: ClassType) {
+        require(type.classDecl.identifier.value in userDefinitions)
         if (type.identifier.value in types) throw InternalError("Possible type redefinition ${type.identifier}")
+        type.classDecl.specifyType(type)
         types[type.identifier.value] = type
     }
 
-    private val classDecl = parser.parseClassDecl(
-        lexer.apply { open(CLASS_SOURCE_CODE, STD_FILE_NAME) }.use {
-            it.lex()
-        }
-    ).apply { enable(Attribute.BUILTIN) }
+    val classDecl = parser.parseClassDecl(lexer.lex(CLASS_SOURCE_CODE, STD_FILE_NAME)).apply {
+        enable(Attribute.BUILTIN)
+        specifyType(ClassType(this, null))
+        specifyScope(ParseScope.topLevel)
+    }
 
-    private val anyValueDecl = parser.parseClassDecl(
-        lexer.apply { open(ANY_VALUE_SOURCE_CODE, STD_FILE_NAME) }.use {
-            it.lex()
-        }
-    ).apply { enable(Attribute.BUILTIN) }
+    val anyValueDecl = parser.parseClassDecl(lexer.lex(ANY_VALUE_SOURCE_CODE, STD_FILE_NAME)).apply {
+        enable(Attribute.BUILTIN)
+        specifyType(ClassType(this, classType))
+        specifyScope(ParseScope.topLevel)
+    }
 
-    private val intDecl = parser.parseClassDecl(
-        lexer.apply { open(INTEGER_SOURCE_CODE, STD_FILE_NAME) }.use {
-            it.lex()
-        }
-    ).apply { enable(Attribute.BUILTIN) }
+    val intDecl = parser.parseClassDecl(lexer.lex(INTEGER_SOURCE_CODE, STD_FILE_NAME)).apply {
+        enable(Attribute.BUILTIN)
+        specifyType(ClassType(this, anyValueType))
+        specifyScope(ParseScope.topLevel)
+    }
 
-    private val boolDecl = parser.parseClassDecl(
-        lexer.apply { open(BOOLEAN_SOURCE_CODE, STD_FILE_NAME) }.use {
-            it.lex()
-        }
-    ).apply { enable(Attribute.BUILTIN) }
+    val boolDecl = parser.parseClassDecl(lexer.lex(BOOLEAN_SOURCE_CODE, STD_FILE_NAME)).apply {
+        enable(Attribute.BUILTIN)
+        specifyType(ClassType(this, anyValueType))
+        specifyScope(ParseScope.topLevel)
+    }
 
-    private val realDecl = parser.parseClassDecl(
-        lexer.apply { open(REAL_SOURCE_CODE, STD_FILE_NAME) }.use {
-            it.lex()
-        }
-    ).apply { enable(Attribute.BUILTIN) }
+    val realDecl = parser.parseClassDecl(lexer.lex(REAL_SOURCE_CODE, STD_FILE_NAME)).apply {
+        enable(Attribute.BUILTIN)
+        specifyType(ClassType(this, anyValueType))
+        specifyScope(ParseScope.topLevel)
+    }
 
-    private val invalidDecl = ClassDecl(
+    val invalidDecl = ClassDecl(
         Token.invalid,
-        Token("\$invalid", TokenKind.IDENTIFIER, Position.fake),
+        Token(INVALID_ID, TokenKind.IDENTIFIER, Position.fake),
         body = ClassBody(Token.invalid, Token.invalid)
-    )
+    ).apply {
+        specifyType(ClassType(this, null))
+        specifyScope(ParseScope.topLevel)
+        enable(Attribute.BUILTIN)
+        enable(Attribute.BROKEN)
+    }
+
+    val ClassDecl.isClass: Boolean get() = identifier.value == CLASS_ID
+    val ClassDecl.isAnyValue: Boolean get() = identifier.value == ANY_VALUE_ID
+    val ClassDecl.isInt: Boolean get() = identifier.value == INTEGER_ID
+    val ClassDecl.isReal: Boolean get() = identifier.value == REAL_ID
+    val ClassDecl.isBool: Boolean get() = identifier.value == BOOLEAN_ID
+    val ClassDecl.isInvalid: Boolean get() = identifier.value == INVALID_ID
+
+    val ClassType.isClass: Boolean get() = identifier.value == CLASS_ID
+    val ClassType.isAnyValue: Boolean get() = identifier.value == ANY_VALUE_ID
+    val ClassType.isInt: Boolean get() = identifier.value == INTEGER_ID
+    val ClassType.isReal: Boolean get() = identifier.value == REAL_ID
+    val ClassType.isBool: Boolean get() = identifier.value == BOOLEAN_ID
+    val ClassType.isInvalid: Boolean get() = identifier.value == INVALID_ID
 
     companion object {
         internal val fakeStdPos = Position(0u, 0u, "std")
@@ -108,12 +154,10 @@ class TypeManager(lexer: Lexer, parser: Parser) {
         const val INTEGER_ID = "Integer"
         const val REAL_ID = "Real"
         const val BOOLEAN_ID = "Boolean"
+        const val INVALID_ID = "\$invalid"
         val builtinTypes = arrayOf(CLASS_ID, ANY_VALUE_ID, INTEGER_ID, REAL_ID, BOOLEAN_ID)
 
         private const val STD_FILE_NAME = "std.ol"
-
-        private fun ClassBody() = ClassBody(Token(TokenKind.IS, fakeStdPos), Token(TokenKind.EXTENDS, fakeStdPos))
-
     }
 }
 

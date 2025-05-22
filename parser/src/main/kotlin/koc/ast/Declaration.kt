@@ -15,11 +15,17 @@ sealed class Decl() : Node(), Typed {
             builder.appendLine(tokens.toString().prependIndent(indent.indent))
         }
     }
+
+    abstract val identifierToken: Token
+    val identifier: Identifier
+        get() = Identifier(identifierToken.value)
+
+    abstract val declKindValue: String
 }
 
 data class ClassDecl(
     val classToken: Token,
-    val identifierToken: Token,
+    override val identifierToken: Token,
     val generics: GenericParams? = null,
     val extendsToken: Token? = null,
     val superTypeRef: RefExpr? = null,
@@ -35,8 +41,6 @@ data class ClassDecl(
         }
     }
 
-    val identifier: Identifier get() = Identifier(identifierToken.value)
-
     val ref: RefExpr get() = RefExpr(identifierToken, generics)
 
     val hasExplicitSuperType: Boolean get() = superTypeRef != null
@@ -45,7 +49,7 @@ data class ClassDecl(
 
     override val type: ClassType
         get() {
-            ensureAfterSema()
+//            ensureAfterSema()
             return _type!!
         }
 
@@ -82,6 +86,9 @@ data class ClassDecl(
             body.toString(indent.next, builder)
         }
     }
+
+    override val declKindValue: String
+        get() = "class"
 }
 
 sealed class ClassMemberDecl() : Decl() {
@@ -101,6 +108,9 @@ sealed class ClassMemberDecl() : Decl() {
 data class FieldDecl(
     val varDecl: VarDecl
 ) : ClassMemberDecl() {
+    override val identifierToken: Token
+        get() = varDecl.identifierToken
+
     private var _type: FieldType? = null
 
     override val type: FieldType
@@ -125,6 +135,9 @@ data class FieldDecl(
     override fun toString(indent: Int, builder: StringBuilder) {
         varDecl.toString(indent, builder)
     }
+
+    override val declKindValue: String
+        get() = "field"
 }
 
 data class ConstructorDecl(
@@ -132,6 +145,9 @@ data class ConstructorDecl(
     val params: Params? = null,
     val body: Body,
 ) : ClassMemberDecl() {
+    override val identifierToken: Token
+        get() = thisToken
+
     private var _type: ConstructorType? = null
 
     override val type: ConstructorType
@@ -151,11 +167,14 @@ data class ConstructorDecl(
 
     override val window: Window
         get() = Window(thisToken, body.tokens.last(), allTokens)
+
+    override val declKindValue: String
+        get() = "constructor"
 }
 
 data class MethodDecl(
     val keyword: Token,
-    val identifierToken: Token,
+    override val identifierToken: Token,
     val params: Params? = null,
     val colon: Token? = null,
     val retTypeRef: RefExpr? = null,
@@ -183,15 +202,17 @@ data class MethodDecl(
 
     override val window: Window
         get() = Window(keyword, body?.tokens?.last() ?: retTypeRef?.tokens?.last() ?: colon ?: params?.tokens?.last() ?: identifierToken, allTokens)
+
+    override val declKindValue: String
+        get() = "method"
 }
 
 data class VarDecl(
     val keyword: Token,
-    val identifierToken: Token = Token.invalid,
+    override val identifierToken: Token = Token.invalid,
     val colonToken: Token = Token.invalid,
     val initializer: Expr
 ) : Decl() {
-
     private var _type: VarType? = null
 
     override val type: VarType
@@ -210,9 +231,6 @@ data class VarDecl(
 
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, initializer)
 
-    val identifier: Identifier
-        get() = Identifier(identifierToken.value)
-
     override val window: Window
         get() = Window(keyword, initializer.tokens.last(), allTokens)
 
@@ -225,19 +243,20 @@ data class VarDecl(
             initializer.toString(indent.next, builder)
         }
     }
+
+    override val declKindValue: String
+        get() = "variable"
 }
 
 data class Param(
-    val identifierToken: Token,
+    override val identifierToken: Token,
     val colonToken: Token,
     val typeRef: RefExpr,
     /**
      * comma before the param
      */
     val commaToken: Token? = null
-) : Node(), Typed {
-    val identifier: Identifier = Identifier(identifierToken.value)
-
+) : Decl(), Typed {
     private var _type: ParamType? = null
     override val type: ParamType
         get() {
@@ -257,14 +276,32 @@ data class Param(
 
     override val window: Window
         get() = Window(identifierToken, commaToken ?: typeRef.tokens.last(), allTokens)
+
+    override val declKindValue: String
+        get() = "parameter"
 }
 
 data class TypeParam(
     val typeRef: RefExpr,
     val commaToken: Token? = null
-) : Node() {
+) : Decl() {
+    override val identifierToken: Token
+        get() = typeRef.identifierToken
+
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, typeRef)
+
+    private var _type: TypeParamType? = null
+    override val type: TypeParamType
+        get() = _type!!
+
+    override fun specifyType(type: Type) {
+        require(type is TypeParamType)
+        _type = type
+    }
 
     override val window: Window
         get() = Window(typeRef.tokens.first(), commaToken ?: typeRef.tokens.last(), allTokens)
+
+    override val declKindValue: String
+        get() = "type parameter"
 }

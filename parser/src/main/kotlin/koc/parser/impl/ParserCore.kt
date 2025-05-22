@@ -1,14 +1,14 @@
 package koc.parser.impl
 
+import koc.ast.Node
+import koc.core.Diagnostics
 import koc.lex.Token
 import koc.lex.TokenKind
-import koc.ast.Node
-import koc.parser.nextPosition
-import koc.core.Diagnostics
 import koc.lex.Tokens
 import koc.lex.diag
 import koc.parser.diag.LackOfToken
 import koc.parser.diag.UnexpectedToken
+import koc.parser.nextPosition
 
 internal class ParserCore(private val diag: Diagnostics) {
     private var idx = -1
@@ -27,31 +27,25 @@ internal class ParserCore(private val diag: Diagnostics) {
 
     private var isBad = false
 
-    val scope: ParseScope
-        get() = ParseScope(
-            curScopeKind,
-            curScope.joinToString(separator = "") { "${scopeMap.getOrDefault(it, 'a')}$it" })
-    private var curScopeKind: ParseScopeKind = ParseScopeKind.DEFAULT
-    private val curScope = arrayListOf<Int>()
-
-    private val scopeMap = mutableMapOf<Int, Char>(0 to 'a')
+    var scope: ParseScope = ParseScope.topLevel
+        private set
 
     fun <T : Node> parse(action: ParserCore.() -> T): T = action(this).apply { fillInfo() }
     fun <T : Node, L : Collection<T>> parse(action: ParserCore.() -> L): L = action(this).apply { fillInfo() }
 
     private inline fun <T> inScope(scope: ParseScopeKind, crossinline action: ParserCore.() -> T): T {
-        val scopeBefore = curScopeKind
-        curScope += curScope.lastOrNull()?.let { it + 1 } ?: 0
-        scopeMap.putIfAbsent(curScope.last(), 'a')
-        curScopeKind = scope
+        val scopeBefore = this.scope
+        this.scope = this.scope.nest(scope)
 
         val res = action()
 
-        scopeMap[curScope.last()] = scopeMap.getOrDefault(curScope.last(), 'a').inc()
-        scopeMap -= curScope.last() + 1
-        curScope.removeLast()
-        curScopeKind = scopeBefore
+        this.scope = scopeBefore
+
         return res
+    }
+
+    fun <T> withScope(scope: ParseScopeKind, action: ParserCore.() -> T): T = inScope(scope) {
+        this.action()
     }
 
     fun <T : Node> withScope(scope: ParseScopeKind, action: ParserCore.() -> T): T = inScope(scope) {
@@ -151,7 +145,63 @@ internal class ParserCore(private val diag: Diagnostics) {
     }
 }
 
-data class ParseScope(val kind: ParseScopeKind, val value: String)
+@ConsistentCopyVisibility
+data class ParseScope private constructor(
+    val kind: ParseScopeKind = ParseScopeKind.DEFAULT,
+    val depth: UInt = 0u, val width: UInt = 0u, val parent: ParseScope? = null
+) {
+    private val children = arrayListOf<ParseScope>()
+
+    fun nest(kind: ParseScopeKind): ParseScope {
+        val nextNestedWidth = children.lastOrNull()?.width?.plus(1u) ?: 0u
+        val child = ParseScope(kind, depth.inc(), nextNestedWidth, this)
+        children += child
+        return child
+    }
+
+    tailrec fun forEach(withParent: (ParseScope) -> Unit) {
+        withParent(this)
+        if (parent != null) forEach(withParent)
+    }
+
+    fun any(withParent: (ParseScope) -> Boolean): Boolean {
+        if (withParent(this)) return true
+        return parent?.any(withParent) == true
+    }
+
+    fun all(withParent: (ParseScope) -> Boolean): Boolean {
+        if (!withParent(this)) return false
+        return parent?.all(withParent) != false
+    }
+
+    fun firstOrNull(of: (ParseScope) -> Boolean): ParseScope? {
+        parent?.firstOrNull(of)?.let { return it }
+        return if (of(this)) this else null
+    }
+
+    fun lastOrNull(of: (ParseScope) -> Boolean): ParseScope? {
+        if (of(this)) return this
+        return parent?.firstOrNull(of)
+    }
+
+    operator fun contains(inner: ParseScope): Boolean {
+        return this.scopeValue().contains(inner.scopeValue())
+    }
+
+    private fun subscopeValue() = "${'a' + depth.toInt()}${width}"
+
+    private fun scopeValue(builder: StringBuilder = StringBuilder()): String {
+        parent?.also { parent -> parent.scopeValue(builder) }
+        builder.append(subscopeValue())
+        return builder.toString()
+    }
+
+    override fun toString(): String = "Scope($kind: ${scopeValue()})"
+
+    companion object {
+        val topLevel = ParseScope()
+    }
+}
 
 enum class ParseScopeKind {
     CLASS, CLASS_BODY, VAR, METHOD, BODY, DEFAULT, WHILE_BODY

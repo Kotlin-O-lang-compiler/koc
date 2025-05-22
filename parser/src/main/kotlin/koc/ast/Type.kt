@@ -36,7 +36,7 @@ sealed class Type() : Attributed {
  */
 data class ClassType(val classDecl: ClassDecl, val superType: ClassType?) : Type() {
     init {
-        require(superType != null || classDecl.identifier.value == "Class") {
+        require(superType != null || classDecl.identifier.value == "Class" || classDecl.identifier.value == "\$invalid") {
             "Only root `Class` declaration is allowed to not have super type"
         }
     }
@@ -69,3 +69,11 @@ class MethodType(val method: MethodDecl, outerDecl: ClassDecl) : ClassMemberType
 }
 
 data class ParamType(val param: Param, val classType: ClassType): Type()
+
+data class TypeParamType(val param: TypeParam, val classType: ClassType? = null): Type() {
+    val isGeneric: Boolean
+        get() = classType == null
+
+    val isConcrete: Boolean
+        get() = !isGeneric
+}
