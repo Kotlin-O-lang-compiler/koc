@@ -3,6 +3,7 @@ package koc.sema.diag
 import koc.ast.ClassDecl
 import koc.ast.FieldDecl
 import koc.ast.MemberAccessExpr
+import koc.ast.RefExpr
 import koc.core.Diagnostics
 import koc.lex.Lexer
 import koc.lex.fromOptions
@@ -125,8 +126,10 @@ class TestReferenceResolver {
         assertFalse(diag.hasErrors)
 
         val a = nodes[0] as ClassDecl
+        val x = a.body.members.first() as FieldDecl
         val y = a.body.members.last() as FieldDecl
         val thisRef = (y.varDecl.initializer as MemberAccessExpr).left
+        val thisX = (y.varDecl.initializer as MemberAccessExpr).member as RefExpr
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
             performSemaStage(nodes, stage)
@@ -137,5 +140,9 @@ class TestReferenceResolver {
         assertNotNull(thisRef.ref)
         assertEquals(a.identifier, thisRef.ref!!.identifier)
         assertSame(a, thisRef.ref!!)
+
+        assertNotNull(thisX.ref)
+        assertEquals(x.identifier, thisX.ref!!.identifier)
+        assertSame(x, thisX.ref!!)
     }
 }
