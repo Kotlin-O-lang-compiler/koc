@@ -228,7 +228,7 @@ fun formatTokens(
     }
 
     if (atHighlight) {
-        highlightLine(highlightEnd!!)
+        highlightLine(highlightStart!!)
     }
 
     if (!messagePrinted && message != null) {

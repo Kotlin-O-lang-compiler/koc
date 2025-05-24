@@ -1,22 +1,23 @@
 package koc.sema
 
+import koc.ast.ClassBody
+import koc.ast.ClassDecl
+import koc.ast.ClassType
+import koc.core.InternalError
+import koc.core.Position
 import koc.lex.Lexer
 import koc.lex.Token
 import koc.lex.TokenKind
 import koc.parser.Parser
 import koc.parser.ast.Attribute
-import koc.ast.ClassBody
-import koc.ast.ClassDecl
-import koc.ast.ClassType
+import koc.parser.ast.Identifier
+import koc.parser.impl.ParseScope
+import koc.sema.TypeManager.Companion.ANY_REF_ID
 import koc.sema.TypeManager.Companion.ANY_VALUE_ID
 import koc.sema.TypeManager.Companion.BOOLEAN_ID
 import koc.sema.TypeManager.Companion.CLASS_ID
 import koc.sema.TypeManager.Companion.INTEGER_ID
 import koc.sema.TypeManager.Companion.REAL_ID
-import koc.core.InternalError
-import koc.core.Position
-import koc.parser.ast.Identifier
-import koc.parser.impl.ParseScope
 
 class TypeManager(lexer: Lexer, parser: Parser) {
     val classType: ClassType
@@ -24,6 +25,9 @@ class TypeManager(lexer: Lexer, parser: Parser) {
 
     val anyValueType: ClassType
         get() = anyValueDecl.type
+
+    val anyRefType: ClassType
+        get() = anyRefDecl.type
 
     val intType: ClassType
         get() = intDecl.type
@@ -59,6 +63,7 @@ class TypeManager(lexer: Lexer, parser: Parser) {
         mutableMapOf<String, ClassDecl>(
             classDecl.identifier.value to classDecl,
             anyValueDecl.identifier.value to anyValueDecl,
+            anyRefDecl.identifier.value to anyRefDecl,
             intDecl.identifier.value to intDecl,
             boolDecl.identifier.value to boolDecl,
             realDecl.identifier.value to realDecl,
@@ -70,6 +75,7 @@ class TypeManager(lexer: Lexer, parser: Parser) {
         mutableMapOf<String, ClassType>(
             classType.identifier.value to classType,
             anyValueType.identifier.value to anyValueType,
+            anyRefType.identifier.value to anyRefType,
             intType.identifier.value to intType,
             boolType.identifier.value to boolType,
             realType.identifier.value to realType,
@@ -99,6 +105,12 @@ class TypeManager(lexer: Lexer, parser: Parser) {
     }
 
     val anyValueDecl = parser.parseClassDecl(lexer.lex(ANY_VALUE_SOURCE_CODE, STD_FILE_NAME)).apply {
+        enable(Attribute.BUILTIN)
+        specifyType(ClassType(this, classType))
+        specifyScope(ParseScope.topLevel)
+    }
+
+    val anyRefDecl = parser.parseClassDecl(lexer.lex(ANY_REF_SOURCE_CODE, STD_FILE_NAME)).apply {
         enable(Attribute.BUILTIN)
         specifyType(ClassType(this, classType))
         specifyScope(ParseScope.topLevel)
@@ -135,6 +147,7 @@ class TypeManager(lexer: Lexer, parser: Parser) {
 
     val ClassDecl.isClass: Boolean get() = identifier.value == CLASS_ID
     val ClassDecl.isAnyValue: Boolean get() = identifier.value == ANY_VALUE_ID
+    val ClassDecl.isAnyRef: Boolean get() = identifier.value == ANY_REF_ID
     val ClassDecl.isInt: Boolean get() = identifier.value == INTEGER_ID
     val ClassDecl.isReal: Boolean get() = identifier.value == REAL_ID
     val ClassDecl.isBool: Boolean get() = identifier.value == BOOLEAN_ID
@@ -142,6 +155,7 @@ class TypeManager(lexer: Lexer, parser: Parser) {
 
     val ClassType.isClass: Boolean get() = identifier.value == CLASS_ID
     val ClassType.isAnyValue: Boolean get() = identifier.value == ANY_VALUE_ID
+    val ClassType.isAnyRef: Boolean get() = identifier.value == ANY_REF_ID
     val ClassType.isInt: Boolean get() = identifier.value == INTEGER_ID
     val ClassType.isReal: Boolean get() = identifier.value == REAL_ID
     val ClassType.isBool: Boolean get() = identifier.value == BOOLEAN_ID
@@ -151,6 +165,7 @@ class TypeManager(lexer: Lexer, parser: Parser) {
         internal val fakeStdPos = Position(0u, 0u, "std")
         const val CLASS_ID = "Class"
         const val ANY_VALUE_ID = "AnyValue"
+        const val ANY_REF_ID = "AnyRef"
         const val INTEGER_ID = "Integer"
         const val REAL_ID = "Real"
         const val BOOLEAN_ID = "Boolean"
@@ -167,6 +182,10 @@ class $CLASS_ID is end
 
 private const val ANY_VALUE_SOURCE_CODE = """
 class $ANY_VALUE_ID extends $CLASS_ID is end
+"""
+
+private const val ANY_REF_SOURCE_CODE = """
+class $ANY_REF_ID extends $CLASS_ID is end
 """
 
 private const val BOOLEAN_SOURCE_CODE = """

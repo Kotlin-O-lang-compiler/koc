@@ -3,6 +3,7 @@ package koc.parser
 import koc.lex.Token
 import koc.parser.ast.Attribute
 import koc.ast.Node
+import koc.ast.Params
 import koc.ast.visitor.Insight
 import koc.ast.visitor.Order
 import koc.ast.visitor.Visitor
@@ -112,3 +113,6 @@ fun Diagnostics.loadIfEmpty(tokens: List<Token>) {
     val code = formatTokens(tokens, 0, tokens.size - 1, showLines = false)
     loadIfEmpty(code)
 }
+
+val Params?.size: Int
+    get() = this?.params?.size ?: 0

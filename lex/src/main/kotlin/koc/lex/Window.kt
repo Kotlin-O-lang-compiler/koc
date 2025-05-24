@@ -18,7 +18,7 @@ data class Window(val start: Int, val end: Int, val allTokens: Tokens) {
         get() = end + 1
 
     val startToken: Token get() = allTokens.tokens[start]
-    val endToken: Token get() = allTokens.tokens[start]
+    val endToken: Token get() = allTokens.tokens[end]
 
     override fun toString(): String = formatTokens(allTokens.tokens, start, end)
 

@@ -204,5 +204,5 @@ data class ParseScope private constructor(
 }
 
 enum class ParseScopeKind {
-    CLASS, CLASS_BODY, VAR, METHOD, BODY, DEFAULT, WHILE_BODY
+    CLASS, CLASS_BODY, VAR, METHOD, CONSTRUCTOR, BODY, DEFAULT, WHILE_BODY
 }

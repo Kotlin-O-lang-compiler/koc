@@ -11,7 +11,7 @@ import koc.sema.diag.BuiltInClassRedefinition
 import koc.sema.diag.DeclRedefinition
 
 class ClassCollector(
-    private val typeManager: TypeManager, private val diag: Diagnostics, private val scopeKeeper: ScopeKeeper
+    private val typeManager: TypeManager, private val diag: Diagnostics, private val scopeManager: ScopeManager
 ) : AbstractVoidInsightVisitor() {
     override fun visit(classDecl: ClassDecl): Insight {
         val name = classDecl.identifier.value
@@ -26,7 +26,7 @@ class ClassCollector(
         }
 
         typeManager.learn(classDecl)
-        scopeKeeper += classDecl
+        scopeManager += classDecl
         return Insight.SKIP
     }
 }

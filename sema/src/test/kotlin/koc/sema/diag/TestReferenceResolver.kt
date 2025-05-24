@@ -3,7 +3,10 @@ package koc.sema.diag
 import koc.ast.ClassDecl
 import koc.ast.FieldDecl
 import koc.ast.MemberAccessExpr
+import koc.ast.MethodBody
+import koc.ast.MethodDecl
 import koc.ast.RefExpr
+import koc.ast.VarDecl
 import koc.core.Diagnostics
 import koc.lex.Lexer
 import koc.lex.fromOptions
@@ -144,5 +147,219 @@ class TestReferenceResolver {
         assertNotNull(thisX.ref)
         assertEquals(x.identifier, thisX.ref!!.identifier)
         assertSame(x, thisX.ref!!)
+    }
+
+    @Test
+    fun `test field redefinition`() {
+        val code = """
+            class A is
+                var x: 0
+                var x: true
+            end
+        """.trimIndent()
+
+        val tokens = lexer.lex(code)
+        val nodes = parser.parseNodes(tokens)
+        assertFalse(diag.hasErrors)
+
+        val a = nodes[0] as ClassDecl
+        val x1 = a.body.members.first() as FieldDecl
+        val x2 = a.body.members.last() as FieldDecl
+
+        semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
+            performSemaStage(nodes, stage)
+        }
+
+        assertTrue(diag.hasErrors)
+        diag.has<DeclRedefinitionKind>()
+        val msg = diag.diagnostics.first() as DeclRedefinition
+        assertSame(x2, msg.decl)
+        assertSame(x1, msg.previousDecl)
+    }
+
+    @Test
+    fun `test var redefinition`() {
+        val code = """
+            class A is
+                method foo is
+                    var a: 0
+                    var x: 0
+                    var y: true
+                    var z: y
+                    var variable: z
+                    var x: true
+                end
+            end
+        """.trimIndent()
+
+        val tokens = lexer.lex(code)
+        val nodes = parser.parseNodes(tokens)
+        assertFalse(diag.hasErrors)
+
+        val a = nodes[0] as ClassDecl
+        val foo = a.body.members.first() as MethodDecl
+        val fooBody = foo.body as MethodBody.MBody
+        val x1 = fooBody.body.nodes[1] as VarDecl
+        val x2 = fooBody.body.nodes.last() as VarDecl
+
+        semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
+            performSemaStage(nodes, stage)
+        }
+
+        assertTrue(diag.hasErrors)
+        diag.has<DeclRedefinitionKind>()
+        val msg = diag.diagnostics.first() as DeclRedefinition
+        assertSame(x2, msg.decl)
+        assertSame(x1, msg.previousDecl)
+    }
+
+    @Test
+    fun `test field by var redefinition`() {
+        val code = """
+            class A is
+                var x: true
+                method foo is
+                    var a: 0
+                    var x: 0
+                    var y: true
+                    var z: y
+                    var variable: z
+                end
+            end
+        """.trimIndent()
+
+        val tokens = lexer.lex(code)
+        val nodes = parser.parseNodes(tokens)
+        assertFalse(diag.hasErrors)
+
+        val a = nodes[0] as ClassDecl
+        val foo = a.body.members.last() as MethodDecl
+        val fooBody = foo.body as MethodBody.MBody
+        val x1 = a.body.members.first() as FieldDecl
+        val x2 = fooBody.body.nodes[1] as VarDecl
+
+        semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
+            performSemaStage(nodes, stage)
+        }
+
+        assertTrue(diag.hasErrors)
+        diag.has<DeclRedefinitionKind>()
+        val msg = diag.diagnostics.first() as DeclRedefinition
+        assertSame(x2, msg.decl)
+        assertSame(x1, msg.previousDecl)
+    }
+
+    @Test
+    fun `test field by param redefinition`() {
+        val code = """
+            class A is
+                var x: true
+                method foo(x: A) is
+                end
+            end
+        """.trimIndent()
+
+        val tokens = lexer.lex(code)
+        val nodes = parser.parseNodes(tokens)
+        assertFalse(diag.hasErrors)
+
+        val a = nodes[0] as ClassDecl
+        val foo = a.body.members.last() as MethodDecl
+        val x1 = a.body.members.first() as FieldDecl
+        val x2 = foo.params!!.params.first()
+
+        semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
+            performSemaStage(nodes, stage)
+        }
+
+        assertTrue(diag.hasErrors)
+        diag.has<DeclRedefinitionKind>()
+        val msg = diag.diagnostics.first() as DeclRedefinition
+        assertSame(x2, msg.decl)
+        assertSame(x1, msg.previousDecl)
+    }
+
+    @Test
+    fun `test param by var redefinition`() {
+        val code = """
+            class A is
+                method foo(x: A) is
+                    var x: true
+                end
+            end
+        """.trimIndent()
+
+        val tokens = lexer.lex(code)
+        val nodes = parser.parseNodes(tokens)
+        assertFalse(diag.hasErrors)
+
+        val a = nodes[0] as ClassDecl
+        val foo = a.body.members.last() as MethodDecl
+        val x1 = foo.params!!.params.first()
+        val x2 = (foo.body as MethodBody.MBody).body.nodes[0] as VarDecl
+
+        semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
+            performSemaStage(nodes, stage)
+        }
+
+        assertTrue(diag.hasErrors)
+        diag.has<DeclRedefinitionKind>()
+        val msg = diag.diagnostics.first() as DeclRedefinition
+        assertSame(x2, msg.decl)
+        assertSame(x1, msg.previousDecl)
+    }
+
+    @Test
+    fun `test class by field redefinition`() {
+        val code = """
+            class A is
+                var x: 0
+            end
+            class x is end
+        """.trimIndent()
+
+        val tokens = lexer.lex(code)
+        val nodes = parser.parseNodes(tokens)
+        assertFalse(diag.hasErrors)
+
+        val a = nodes[0] as ClassDecl
+        val x1 = nodes[1] as ClassDecl
+        val x2 = a.body.members.first() as FieldDecl
+
+        semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
+            performSemaStage(nodes, stage)
+        }
+
+        assertTrue(diag.hasErrors)
+        diag.has<DeclRedefinitionKind>()
+        val msg = diag.diagnostics.first() as DeclRedefinition
+        assertSame(x2, msg.decl)
+        assertSame(x1, msg.previousDecl)
+    }
+
+    @Test
+    fun `test undefined field initializer`() {
+        val code = """
+            class A is
+                var x: y
+            end
+        """.trimIndent()
+
+        val tokens = lexer.lex(code)
+        val nodes = parser.parseNodes(tokens)
+        assertFalse(diag.hasErrors)
+
+        val a = nodes[0] as ClassDecl
+        val x = a.body.members.first() as FieldDecl
+        val y = (x.varDecl.initializer as RefExpr)
+
+        semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
+            performSemaStage(nodes, stage)
+        }
+
+        assertTrue(diag.hasErrors)
+        diag.has<UndefinedReferenceKind>()
+        val msg = diag.diagnostics.first() as UndefinedReference
+        assertSame(y, msg.ref)
     }
 }

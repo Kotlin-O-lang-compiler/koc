@@ -4,6 +4,7 @@ import koc.lex.Token
 import koc.lex.Window
 import koc.parser.ast.Identifier
 import koc.ast.visitor.Visitor
+import koc.lex.asWindow
 import koc.parser.indent
 import koc.parser.next
 import koc.parser.scope
@@ -19,6 +20,9 @@ sealed class Decl() : Node(), Typed {
     abstract val identifierToken: Token
     val identifier: Identifier
         get() = Identifier(identifierToken.value)
+
+    val identifierWindow: Window
+        get() = identifierToken.asWindow(allTokens.tokens)
 
     abstract val declKindValue: String
 }
@@ -60,6 +64,18 @@ data class ClassDecl(
         get() {
             return type.superType
         }
+
+    val decls: List<ClassMemberDecl>
+        get() = body.members
+
+    val methods: List<MethodDecl>
+        get() = decls.filterIsInstance<MethodDecl>()
+
+    val fields: List<FieldDecl>
+        get() = decls.filterIsInstance<FieldDecl>()
+
+    val constructors: List<ConstructorDecl>
+        get() = decls.filterIsInstance<ConstructorDecl>()
 
     override fun <T> visit(visitor: Visitor<T>): T? = walk(
         visitor, visitor.order, visitor.onBroken, *listOfNotNull(
@@ -165,6 +181,9 @@ data class ConstructorDecl(
         visitor, visitor.order, visitor.onBroken, *listOfNotNull(params, body).toTypedArray()
     )
 
+    val signatureWindow: Window
+        get() = Window(thisToken, params?.window?.endToken ?: identifierToken, allTokens)
+
     override val window: Window
         get() = Window(thisToken, body.tokens.last(), allTokens)
 
@@ -202,6 +221,9 @@ data class MethodDecl(
 
     override val window: Window
         get() = Window(keyword, body?.tokens?.last() ?: retTypeRef?.tokens?.last() ?: colon ?: params?.tokens?.last() ?: identifierToken, allTokens)
+
+    val signatureWindow: Window
+        get() = Window(keyword, retTypeRef?.window?.endToken ?: params?.window?.endToken ?: identifierToken, allTokens)
 
     override val declKindValue: String
         get() = "method"

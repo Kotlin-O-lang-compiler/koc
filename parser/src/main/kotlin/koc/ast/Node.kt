@@ -177,6 +177,8 @@ class Params(
         _params += params
     }
 
+    operator fun get(i: Int): Param = params[i]
+
     override fun <T> visit(visitor: Visitor<T>): T? = walk(
         visitor, visitor.order, visitor.onBroken, *params.toTypedArray()
     )

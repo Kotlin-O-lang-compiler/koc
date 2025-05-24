@@ -19,33 +19,33 @@ import koc.sema.diag.UndefinedReference
 class ReferenceResolver(
     private val typeManager: TypeManager,
     private val diag: Diagnostics,
-    private val scopeKeeper: ScopeKeeper
+    private val scopeManager: ScopeManager
 ) : AbstractVoidInsightVisitor() {
     private var context: ClassDecl? = null
 
     override fun visit(field: FieldDecl): Insight {
-        scopeKeeper += field
+        scopeManager += field
         field.varDecl.initializer.visit(this)
         return Insight.SKIP
     }
 
     override fun visit(vardecl: VarDecl): Insight {
-        scopeKeeper += vardecl
+        scopeManager += vardecl
         return super.visit(vardecl)
     }
 
     override fun visit(method: MethodDecl): Insight {
-        scopeKeeper += method
+        scopeManager += method
         return super.visit(method)
     }
 
     override fun visit(param: Param): Insight {
-        scopeKeeper += param
+        scopeManager += param
         return super.visit(param)
     }
 
     override fun visit(node: TypeParam): Insight {
-        scopeKeeper += node
+        scopeManager += node
         return super.visit(node)
     }
 
@@ -61,8 +61,8 @@ class ReferenceResolver(
                 expr.enable(Attribute.BROKEN)
             }
         } else {
-            if (scopeKeeper.isDefined(expr.identifier, expr.scope)) {
-                expr.specifyRef(scopeKeeper.getDecl(expr.identifier, expr.scope))
+            if (scopeManager.isDefined(expr.identifier, expr.scope)) {
+                expr.specifyRef(scopeManager.getDecl(expr.identifier, expr.scope))
             } else {
                 expr.specifyRef(typeManager.invalidDecl)
                 diag.diag(UndefinedReference(expr), expr.window)

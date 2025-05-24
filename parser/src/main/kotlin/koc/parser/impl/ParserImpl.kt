@@ -268,11 +268,12 @@ class ParserImpl(
     private fun parseConstructor(): ConstructorDecl = core.parse<ConstructorDecl> {
         val thisToken = expect(TokenKind.THIS)
         val afterThis = core.expect(listOf(TokenKind.LPAREN, TokenKind.IS), lookahead = true)
-        val params = when (afterThis.kind) {
-            TokenKind.LPAREN -> parseParams()
-            else -> null
+        val (params, body) = core.withScope<Pair<Params?, Body>>(ParseScopeKind.CONSTRUCTOR) {
+            when (afterThis.kind) {
+                TokenKind.LPAREN -> parseParams()
+                else -> null
+            } to parseBody()
         }
-        val body = parseBody()
         ConstructorDecl(thisToken, params, body)
     }
 
