@@ -1,5 +1,6 @@
 package koc.sema.diag
 
+import jdk.jshell.Diag
 import koc.ast.ClassDecl
 import koc.core.Diagnostics
 import koc.lex.Lexer
@@ -28,7 +29,7 @@ class TestOverloadResolution {
         diag = Diagnostics()
         lexer = Lexer.fromOptions(diag = diag)
         parser = Parser.fromOptions(diag = diag)
-        typeManager = TypeManager(lexer, parser)
+        typeManager = TypeManager(Lexer.fromOptions(diag = Diagnostics()), Parser.fromOptions(diag = Diagnostics()))
     }
 
     @Test
@@ -37,6 +38,12 @@ class TestOverloadResolution {
             class A is
                 method foo
                 method foo is end
+                method x: A is
+                    return this
+                end
+                method xxx is
+                    var tmp: x().foo()
+                end
             end
         """.trimIndent()
 
@@ -45,7 +52,7 @@ class TestOverloadResolution {
         assertFalse(diag.hasErrors)
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is OverloadValidatorVisitor }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertFalse(diag.hasErrors)
@@ -70,7 +77,7 @@ class TestOverloadResolution {
         val foo2 = a.methods.last()
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is OverloadValidatorVisitor }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)
@@ -100,7 +107,7 @@ class TestOverloadResolution {
         val foo2 = a.methods.last()
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is OverloadValidatorVisitor }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)
@@ -130,7 +137,7 @@ class TestOverloadResolution {
         val foo2 = a.methods.last()
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is OverloadValidatorVisitor }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)
@@ -162,7 +169,7 @@ class TestOverloadResolution {
         val ctor2 = a.constructors.last()
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is OverloadValidatorVisitor }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)
@@ -193,7 +200,7 @@ class TestOverloadResolution {
         val ctor2 = a.constructors[1]
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is OverloadValidatorVisitor }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)
@@ -202,5 +209,33 @@ class TestOverloadResolution {
         assertSame(ctor2, msg.ctor)
         assertEquals(1, msg.candidates.size)
         assertSame(ctor1, msg.candidates.first())
+    }
+
+    @Test
+    fun `test param redefinition`() {
+        val code = """
+            class A is
+                method foo(a: Integer, b: Real, a: A) is end
+            end
+        """.trimIndent()
+
+        val tokens = lexer.lex(code)
+        val nodes = parser.parseNodes(tokens)
+        assertFalse(diag.hasErrors)
+
+        val a = nodes[0] as ClassDecl
+        val foo = a.methods.first()
+        val a1 = foo.params!![0]
+        val a2 = foo.params!![2]
+
+        semaVisitors(typeManager, diag).dropLastWhile { it !is OverloadValidatorVisitor }.forEach { stage ->
+            performSemaStage(nodes, stage, typeManager)
+        }
+
+        assertTrue(diag.hasErrors)
+        assertTrue(diag.has<DeclRedefinitionKind>())
+        val msg = diag.diagnostics.first() as DeclRedefinition
+        assertSame(a2, msg.decl)
+        assertSame(a1, msg.previousDecl)
     }
 }

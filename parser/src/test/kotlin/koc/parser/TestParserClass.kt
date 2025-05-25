@@ -11,6 +11,7 @@ import koc.ast.VarDecl
 import koc.parser.impl.ParserImpl
 import koc.core.Diagnostics
 import koc.core.Position
+import koc.lex.Tokens
 import org.junit.jupiter.api.BeforeEach
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -38,7 +39,7 @@ class TestParserClass {
             Token(TokenKind.IS, Position(1u, 10u, "test")),
             Token(TokenKind.END, Position(1u, 13u, "test"))
         )
-        val classDecl = parser.parseClassDecl(tokens)
+        val classDecl = parser.parseClassDecl(Tokens(tokens, emptyList()))
         assertFalse { classDecl.isBroken }
         assertFalse { diag.hasErrors }
         assertEquals(tokens[0], classDecl.classToken)
@@ -61,7 +62,7 @@ class TestParserClass {
 
             Token(TokenKind.END, Position(3u, 13u, "test"))
         )
-        val classDecl = parser.parseClassDecl(tokens)
+        val classDecl = parser.parseClassDecl(Tokens(tokens, emptyList()))
         assertFalse { classDecl.isBroken }
         assertFalse { diag.hasErrors }
         assertEquals(tokens[0], classDecl.classToken)
@@ -101,7 +102,7 @@ class TestParserClass {
             *varToken.toTypedArray(),
             Token(TokenKind.END, Position(3u, 13u, "test"))
         )
-        val classDecl = parser.parseClassDecl(tokens)
+        val classDecl = parser.parseClassDecl(Tokens(tokens, emptyList()))
         assertFalse { classDecl.isBroken }
         assertFalse { diag.hasErrors }
         assertEquals(tokens[0], classDecl.classToken)
@@ -139,7 +140,7 @@ class TestParserClass {
             *methodTokens.toTypedArray(),
             Token(TokenKind.END, Position(3u, 13u, "test"))
         )
-        val classDecl = parser.parseClassDecl(tokens)
+        val classDecl = parser.parseClassDecl(Tokens(tokens, emptyList()))
         assertFalse { classDecl.isBroken }
         assertFalse { diag.hasErrors }
         assertEquals(tokens[0], classDecl.classToken)
@@ -163,7 +164,7 @@ class TestParserClass {
             Token(TokenKind.METHOD, Position(2u, 1u, "test")),
             Token("foo", TokenKind.IDENTIFIER, Position(2u, 8u, "test"))
         )
-        val method = parser.parseMethod(tokens)
+        val method = parser.parseMethod(Tokens(tokens, emptyList()))
         assertFalse { method.isBroken }
         assertFalse { diag.hasErrors }
 
@@ -180,7 +181,7 @@ class TestParserClass {
             Token(TokenKind.LPAREN, Position(2u, 12u, "test")),
             Token(TokenKind.RPAREN, Position(2u, 13u, "test")),
         )
-        val method = parser.parseMethod(tokens)
+        val method = parser.parseMethod(Tokens(tokens, emptyList()))
         assertFalse { method.isBroken }
         assertFalse { diag.hasErrors }
 
@@ -199,7 +200,7 @@ class TestParserClass {
             Token(TokenKind.COLON, Position(2u, 12u, "test")),
             Token("Integer", TokenKind.IDENTIFIER, Position(2u, 14u, "test")),
         )
-        val method = parser.parseMethod(tokens)
+        val method = parser.parseMethod(Tokens(tokens, emptyList()))
         assertFalse { method.isBroken }
         assertFalse { diag.hasErrors }
 
@@ -221,7 +222,7 @@ class TestParserClass {
             Token(TokenKind.IS, Position(2u, 12u, "test")),
             Token(TokenKind.END, Position(2u, 15u, "test")),
         )
-        val method = parser.parseMethod(tokens)
+        val method = parser.parseMethod(Tokens(tokens, emptyList()))
         assertFalse { method.isBroken }
         assertFalse { diag.hasErrors }
 
@@ -247,7 +248,7 @@ class TestParserClass {
             Token(TokenKind.WIDE_ARROW, Position(2u, 22u, "test")),
             Token("5", TokenKind.INT_LITERAL, Position(2u, 25u, "test")),
         )
-        val method = parser.parseMethod(tokens)
+        val method = parser.parseMethod(Tokens(tokens, emptyList()))
         assertFalse { method.isBroken }
         assertFalse { diag.hasErrors }
 
@@ -274,7 +275,7 @@ class TestParserClass {
             Token(TokenKind.IS, Position(2u, 12u, "test")),
             Token(TokenKind.END, Position(2u, 15u, "test")),
         )
-        val ctor = parser.parseConstructor(tokens)
+        val ctor = parser.parseConstructor(Tokens(tokens, emptyList()))
         assertFalse { ctor.isBroken }
         assertFalse { diag.hasErrors }
 
@@ -301,7 +302,7 @@ class TestParserClass {
             Token(TokenKind.END, Position(3u, 1u, "test")),
         )
 
-        val loop = parser.parseWhileLoop(tokens)
+        val loop = parser.parseWhileLoop(Tokens(tokens, emptyList()))
         assertFalse { loop.isBroken }
         assertFalse { diag.hasErrors }
 
@@ -334,7 +335,7 @@ class TestParserClass {
             Token(TokenKind.END, Position(3u, 1u, "test")),
         )
 
-        val ifnode = parser.parseIfNode(tokens)
+        val ifnode = parser.parseIfNode(Tokens(tokens, emptyList()))
         assertFalse { ifnode.isBroken }
         assertFalse { diag.hasErrors }
 
@@ -370,7 +371,7 @@ class TestParserClass {
             Token(TokenKind.END, Position(5u, 1u, "test")),
         )
 
-        val ifnode = parser.parseIfNode(tokens)
+        val ifnode = parser.parseIfNode(Tokens(tokens, emptyList()))
         assertFalse { ifnode.isBroken }
         assertFalse { diag.hasErrors }
 
@@ -398,7 +399,7 @@ class TestParserClass {
             Token(TokenKind.RETURN, Position(1u, 1u, "test")),
         )
 
-        val ret = parser.parseReturnNode(tokens)
+        val ret = parser.parseReturnNode(Tokens(tokens, emptyList()))
 
         assertEquals(tokens[0], ret.keyword)
         assertNull(ret.expr)
@@ -411,7 +412,7 @@ class TestParserClass {
             Token("5", TokenKind.INT_LITERAL, Position(1u, 8u, "test"))
         )
 
-        val ret = parser.parseReturnNode(tokens)
+        val ret = parser.parseReturnNode(Tokens(tokens, emptyList()))
 
         assertEquals(tokens[0], ret.keyword)
         val retVal = ret.expr
@@ -427,7 +428,7 @@ class TestParserClass {
             Token("5", TokenKind.INT_LITERAL, Position(1u, 6u, "test"))
         )
 
-        val asn = parser.parseAssignment(tokens)
+        val asn = parser.parseAssignment(Tokens(tokens, emptyList()))
 
         assertEquals(tokens[0], asn.identifierToken)
         assertEquals(tokens[1], asn.assignmentToken)

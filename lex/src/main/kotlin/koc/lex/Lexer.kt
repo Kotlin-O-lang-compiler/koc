@@ -11,15 +11,15 @@ interface Lexer : Iterable<Token>, AutoCloseable {
     /**
      * Tokenizes opened program
      */
-    fun lex(): List<Token>
+    fun lex(): Tokens
 
-    fun lex(program: File): List<Token> {
+    fun lex(program: File): Tokens {
         open(program)
         return use {
             lex()
         }
     }
-    fun lex(program: String, programName: String = "program"): List<Token> {
+    fun lex(program: String, programName: String = "program"): Tokens {
         open(program, programName)
         return use {
             lex()

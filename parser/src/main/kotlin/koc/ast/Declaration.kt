@@ -53,9 +53,11 @@ data class ClassDecl(
 
     override val type: ClassType
         get() {
-//            ensureAfterSema()
             return _type!!
         }
+
+    override val isTypeKnown: Boolean
+        get() = _type != null
 
     override val rootType: ClassType
         get() = type
@@ -84,7 +86,7 @@ data class ClassDecl(
     )
 
     override val window: Window
-        get() = Window(classToken, body.tokens.last(), allTokens)
+        get() = Window(classToken, body.tokens.last(), allTokens.tokens)
 
     override fun specifyType(type: Type) {
         require(type is ClassType)
@@ -131,12 +133,14 @@ data class FieldDecl(
 
     override val type: FieldType
         get() {
-            ensureAfterSema()
             return _type!!
         }
 
+    override val isTypeKnown: Boolean
+        get() = _type != null
+
     override val rootType: ClassType
-        get() = type.classType
+        get() = varDecl.rootType
 
     override fun specifyType(type: Type) {
         require(type is FieldType)
@@ -172,6 +176,9 @@ data class ConstructorDecl(
             return _type!!
         }
 
+    override val isTypeKnown: Boolean
+        get() = _type != null
+
     override fun specifyType(type: Type) {
         require(type is ConstructorType)
         _type = type
@@ -182,10 +189,10 @@ data class ConstructorDecl(
     )
 
     val signatureWindow: Window
-        get() = Window(thisToken, params?.window?.endToken ?: identifierToken, allTokens)
+        get() = Window(thisToken, params?.window?.endToken ?: identifierToken, allTokens.tokens)
 
     override val window: Window
-        get() = Window(thisToken, body.tokens.last(), allTokens)
+        get() = Window(thisToken, body.tokens.last(), allTokens.tokens)
 
     override val declKindValue: String
         get() = "constructor"
@@ -206,9 +213,11 @@ data class MethodDecl(
 
     override val type: MethodType
         get() {
-            ensureAfterSema()
             return _type!!
         }
+
+    override val isTypeKnown: Boolean
+        get() = _type != null
 
     override fun specifyType(type: Type) {
         require(type is MethodType)
@@ -220,10 +229,10 @@ data class MethodDecl(
     )
 
     override val window: Window
-        get() = Window(keyword, body?.tokens?.last() ?: retTypeRef?.tokens?.last() ?: colon ?: params?.tokens?.last() ?: identifierToken, allTokens)
+        get() = Window(keyword, body?.tokens?.last() ?: retTypeRef?.tokens?.last() ?: colon ?: params?.tokens?.last() ?: identifierToken, allTokens.tokens)
 
     val signatureWindow: Window
-        get() = Window(keyword, retTypeRef?.window?.endToken ?: params?.window?.endToken ?: identifierToken, allTokens)
+        get() = Window(keyword, retTypeRef?.window?.endToken ?: params?.window?.endToken ?: identifierToken, allTokens.tokens)
 
     override val declKindValue: String
         get() = "method"
@@ -239,9 +248,11 @@ data class VarDecl(
 
     override val type: VarType
         get() {
-            ensureAfterSema()
             return _type!!
         }
+
+    override val isTypeKnown: Boolean
+        get() = _type != null
 
     override val rootType: ClassType
         get() = type.classType
@@ -254,7 +265,7 @@ data class VarDecl(
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, initializer)
 
     override val window: Window
-        get() = Window(keyword, initializer.tokens.last(), allTokens)
+        get() = Window(keyword, initializer.tokens.last(), allTokens.tokens)
 
     override fun toString(indent: Int, builder: StringBuilder) {
         builder.append(indent.indent, "File(${identifier})").scope {
@@ -282,9 +293,11 @@ data class Param(
     private var _type: ParamType? = null
     override val type: ParamType
         get() {
-            ensureAfterSema()
             return _type!!
         }
+
+    override val isTypeKnown: Boolean
+        get() = _type != null
 
     override fun specifyType(type: Type) {
         require(type is ParamType)
@@ -297,7 +310,7 @@ data class Param(
         get() = type.classType
 
     override val window: Window
-        get() = Window(identifierToken, commaToken ?: typeRef.tokens.last(), allTokens)
+        get() = Window(identifierToken, commaToken ?: typeRef.tokens.last(), allTokens.tokens)
 
     override val declKindValue: String
         get() = "parameter"
@@ -316,13 +329,16 @@ data class TypeParam(
     override val type: TypeParamType
         get() = _type!!
 
+    override val isTypeKnown: Boolean
+        get() = _type != null
+
     override fun specifyType(type: Type) {
         require(type is TypeParamType)
         _type = type
     }
 
     override val window: Window
-        get() = Window(typeRef.tokens.first(), commaToken ?: typeRef.tokens.last(), allTokens)
+        get() = Window(typeRef.tokens.first(), commaToken ?: typeRef.tokens.last(), allTokens.tokens)
 
     override val declKindValue: String
         get() = "type parameter"

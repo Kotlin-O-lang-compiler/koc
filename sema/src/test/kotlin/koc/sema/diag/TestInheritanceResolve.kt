@@ -28,7 +28,7 @@ class TestInheritanceResolve {
         diag = Diagnostics()
         lexer = Lexer.fromOptions(diag = diag)
         parser = Parser.fromOptions(diag = diag)
-        typeManager = TypeManager(lexer, parser)
+        typeManager = TypeManager(Lexer.fromOptions(diag = Diagnostics()), Parser.fromOptions(diag = Diagnostics()))
     }
 
     @Test
@@ -42,7 +42,7 @@ class TestInheritanceResolve {
         assertFalse(diag.hasErrors)
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is SuperTypeResolver }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertFalse(diag.hasErrors)

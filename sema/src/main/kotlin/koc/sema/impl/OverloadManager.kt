@@ -1,6 +1,7 @@
 package koc.sema.impl
 
 import koc.ast.ClassDecl
+import koc.ast.ClassType
 import koc.ast.ConstructorDecl
 import koc.ast.MethodDecl
 import koc.ast.Params
@@ -9,7 +10,6 @@ import koc.lex.diag
 import koc.parser.ast.Attribute
 import koc.parser.ast.Identifier
 import koc.parser.size
-import koc.sema.TypeManager
 import koc.sema.diag.ConstructorOverloadFailed
 import koc.sema.diag.MethodOverloadFailed
 
@@ -71,49 +71,38 @@ class OverloadManager(val diag: Diagnostics) {
         return prefiltered.filter { target -> !target.isBroken && areParamsEqual(method.params, target.params) }
     }
 
+    fun getSuitable(classId: Identifier, methodIdentifier: Identifier, params: List<ClassType>): MethodDecl? {
+        val prefiltered = getMethodCandidatesByParametersCount(classId, methodIdentifier, params.size)
+
+        val candidates = prefiltered.filter { target -> !target.isBroken && areParamsEqual(params, target.params?.types ?: listOf()) }
+        if (candidates.size != 1) return null
+        return candidates.first()
+    }
+
     fun getCandidates(classId: Identifier, ctor: ConstructorDecl): List<ConstructorDecl> {
         val prefiltered = getCtorCandidatesByParametersCount(classId, ctor.params.size)
 
         return prefiltered.filter { target -> !target.isBroken && areParamsEqual(ctor.params, target.params) }
     }
 
-    private fun areParamsEqual(first: Params?, other: Params?): Boolean {
-        if (first.size != other.size) return false
-        if (first.size == 0) return true
+    fun getSuitable(classId: Identifier, params: List<ClassType>): ConstructorDecl? {
+        val prefiltered = getCtorCandidatesByParametersCount(classId, params.size)
 
-        for (i in 0 ..< first.size) {
-            check(first!![i].typeRef.ref != null)
-            check(other!![i].typeRef.ref != null)
-            if (first[i].typeRef.ref!!.identifier != other[i].typeRef.ref!!.identifier) return false
+        val candidates = prefiltered.filter { target -> !target.isBroken && areParamsEqual(params, target.params?.types ?: listOf()) }
+        if (candidates.size != 1) return null
+        return candidates.first()
+    }
+
+    private fun areParamsEqual(first: List<ClassType>, other: List<ClassType>): Boolean {
+        if (first.size != other.size) return false
+
+        for (i in first.indices) {
+            if (first[i].identifier != other[i].identifier) return false
         }
         return true
     }
 
-    fun initializeBuiltIn(typeManager: TypeManager) {
-//        this += typeManager.invalidDecl // should not contain methods
-        typeManager.classDecl.also { classDecl ->
-            classDecl.methods.forEach { method -> this += method }
-            classDecl.constructors.forEach { ctor -> this += ctor }
-        }
-        typeManager.anyValueDecl.also { classDecl ->
-            classDecl.methods.forEach { method -> this += method }
-            classDecl.constructors.forEach { ctor -> this += ctor }
-        }
-        typeManager.anyRefDecl.also { classDecl ->
-            classDecl.methods.forEach { method -> this += method }
-            classDecl.constructors.forEach { ctor -> this += ctor }
-        }
-        typeManager.boolDecl.also { classDecl ->
-            classDecl.methods.forEach { method -> this += method }
-            classDecl.constructors.forEach { ctor -> this += ctor }
-        }
-        typeManager.intDecl.also { classDecl ->
-            classDecl.methods.forEach { method -> this += method }
-            classDecl.constructors.forEach { ctor -> this += ctor }
-        }
-        typeManager.realDecl.also { classDecl ->
-            classDecl.methods.forEach { method -> this += method }
-            classDecl.constructors.forEach { ctor -> this += ctor }
-        }
+    private fun areParamsEqual(first: Params?, other: Params?): Boolean {
+        return areParamsEqual(first?.types ?: emptyList(), other?.types ?: listOf())
     }
 }

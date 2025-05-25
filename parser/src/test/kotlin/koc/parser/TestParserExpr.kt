@@ -11,6 +11,7 @@ import koc.ast.RefExpr
 import koc.parser.impl.ParserImpl
 import koc.core.Diagnostics
 import koc.core.Position
+import koc.lex.Tokens
 import org.junit.jupiter.api.BeforeEach
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -34,12 +35,12 @@ class TestParserExpr {
     fun `parse this`() {
         val token = Token(TokenKind.THIS, Position(1u, 1u, "test"))
         val tokens = listOf(token)
-        val expr1 = parser.parseRefExpr(tokens)
+        val expr1 = parser.parseRefExpr(Tokens(tokens, emptyList()))
         assertFalse { diag.hasErrors }
         assertEquals(token, expr1.identifierToken)
         assertFalse { expr1.isBroken }
 
-        val expr2 = parser.parseExpr(tokens)
+        val expr2 = parser.parseExpr(Tokens(tokens, emptyList()))
         assertFalse { diag.hasErrors }
         assertIs<RefExpr>(expr2)
         assertEquals(token, expr2.identifierToken)
@@ -49,13 +50,13 @@ class TestParserExpr {
     @Test
     fun `parse this empty`() {
         val tokens = listOf<Token>()
-        val expr1 = parser.parseRefExpr(tokens)
+        val expr1 = parser.parseRefExpr(Tokens(tokens, emptyList()))
         assertTrue { diag.hasErrors }
         assertTrue { expr1.isBroken }
 
         diag.clear()
 
-        val expr2 = parser.parseExpr(tokens)
+        val expr2 = parser.parseExpr(Tokens(tokens, emptyList()))
         assertTrue { diag.hasErrors }
         assertIs<InvalidExpr>(expr2)
         assertTrue { expr2.isBroken }
@@ -67,13 +68,13 @@ class TestParserExpr {
             Token(TokenKind.IS, Position(1u, 1u, "test")),
             Token(TokenKind.END, Position(1u, 4u, "test"))
         )
-        val expr1 = parser.parseRefExpr(tokens)
+        val expr1 = parser.parseRefExpr(Tokens(tokens, emptyList()))
         assertTrue { diag.hasErrors }
         assertTrue { expr1.isBroken }
 
         diag.clear()
 
-        val expr2 = parser.parseExpr(tokens)
+        val expr2 = parser.parseExpr(Tokens(tokens, emptyList()))
         assertTrue { diag.hasErrors }
         assertIs<InvalidExpr>(expr2)
         assertTrue { expr2.isBroken }
@@ -85,12 +86,12 @@ class TestParserExpr {
         val value = -123L
         val token = Token(value.toString(), TokenKind.INT_LITERAL, Position(1u, 1u, "test"))
         val tokens = listOf(token)
-        val expr1 = parser.parseIntegerLiteral(tokens)
+        val expr1 = parser.parseIntegerLiteral(Tokens(tokens, emptyList()))
         assertFalse { diag.hasErrors }
         assertEquals(value, expr1.value)
         assertEquals(token, expr1.token)
         assertFalse { expr1.isBroken }
-        val expr2 = parser.parseExpr(tokens)
+        val expr2 = parser.parseExpr(Tokens(tokens, emptyList()))
         assertFalse { diag.hasErrors }
         assertIs<IntegerLiteral>(expr2)
         assertEquals(value, expr2.value)
@@ -104,7 +105,7 @@ class TestParserExpr {
             Token(TokenKind.IS, Position(1u, 1u, "test")),
             Token(TokenKind.END, Position(1u, 4u, "test"))
         )
-        val expr = parser.parseIntegerLiteral(tokens)
+        val expr = parser.parseIntegerLiteral(Tokens(tokens, emptyList()))
         assertTrue { diag.hasErrors }
         assertTrue { expr.isBroken }
     }
@@ -114,12 +115,12 @@ class TestParserExpr {
         val value = -0.125
         val token = Token(value.toString(), TokenKind.REAL_LITERAL, Position(1u, 1u, "test"))
         val tokens = listOf(token)
-        val expr1 = parser.parseRealLiteral(tokens)
+        val expr1 = parser.parseRealLiteral(Tokens(tokens, emptyList()))
         assertFalse { diag.hasErrors }
         assertEquals(value, expr1.value)
         assertEquals(token, expr1.token)
         assertFalse { expr1.isBroken }
-        val expr2 = parser.parseExpr(tokens)
+        val expr2 = parser.parseExpr(Tokens(tokens, emptyList()))
         assertFalse { diag.hasErrors }
         assertIs<RealLiteral>(expr2)
         assertEquals(value, expr2.value)
@@ -133,7 +134,7 @@ class TestParserExpr {
             Token(TokenKind.IS, Position(1u, 1u, "test")),
             Token(TokenKind.END, Position(1u, 4u, "test"))
         )
-        val expr = parser.parseRealLiteral(tokens)
+        val expr = parser.parseRealLiteral(Tokens(tokens, emptyList()))
         assertTrue { diag.hasErrors }
         assertTrue { expr.isBroken }
     }
@@ -145,7 +146,7 @@ class TestParserExpr {
             Token(TokenKind.LPAREN, Position(1u, 5u, "test")),
             Token(TokenKind.RPAREN, Position(1u, 6u, "test"))
         )
-        val expr = parser.parseExpr(tokens)
+        val expr = parser.parseExpr(Tokens(tokens, emptyList()))
         assertIs<CallExpr>(expr)
         assertFalse { diag.hasErrors }
         assertFalse { expr.isBroken }
@@ -162,7 +163,7 @@ class TestParserExpr {
             Token("5", TokenKind.INT_LITERAL, Position(1u, 11u, "test")),
             Token(TokenKind.RPAREN, Position(1u, 13u, "test"))
         )
-        val expr = parser.parseExpr(tokens)
+        val expr = parser.parseExpr(Tokens(tokens, emptyList()))
         assertIs<CallExpr>(expr)
         assertFalse { diag.hasErrors }
         assertFalse { expr.isBroken }
@@ -183,12 +184,12 @@ class TestParserExpr {
             Token(TokenKind.LPAREN, Position(1u, 5u, "test")),
             Token(TokenKind.RPAREN, Position(1u, 6u, "test"))
         )
-        val access = parser.parseExpr(tokens)
+        val access = parser.parseExpr(Tokens(tokens, emptyList()))
         assertFalse { diag.hasErrors }
         assertFalse { access.isBroken }
 
         assertIs<MemberAccessExpr>(access)
-        assertEquals(tokens.first(), access.left.identifierToken)
+        assertEquals(tokens.first(), (access.left as RefExpr).identifierToken)
         assertEquals(tokens[1], access.dot)
 
         val call = access.member

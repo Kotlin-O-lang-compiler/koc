@@ -23,7 +23,6 @@ class LexerTest {
     @Test
     fun `test empty program`() {
         val code = ""
-        diag.load(code)
         lexer.open(code)
         val tokens = lexer.lex()
         assertEquals(0, tokens.size)
@@ -33,30 +32,27 @@ class LexerTest {
     @Test
     fun `test unexpected program`() {
         val code = "+one"
-        diag.load(code)
         lexer.open(code)
         val tokens = lexer.lex()
         assertEquals(1, tokens.size)
-        assertEquals(TokenKind.INVALID, tokens.first().kind)
+        assertEquals(TokenKind.INVALID, tokens.tokens.first().kind)
         assertTrue { diag.hasErrors }
     }
 
     @Test
     fun `test single line comment`() {
         val comment = "//hello world"
-        diag.load(comment)
         lexer.open(comment)
         val tokens = lexer.lex()
         assertEquals(1, tokens.size)
-        assertEquals(TokenKind.COMMENT, tokens.first().kind)
-        assertEquals(comment, tokens.first().value)
+        assertEquals(TokenKind.COMMENT, tokens.tokens.first().kind)
+        assertEquals(comment, tokens.first.value)
         assertFalse { diag.hasErrors }
     }
 
     @Test
     fun `test single line comment lines`() {
         val comment = "//hello world"
-        diag.load(comment)
         lexer.open("$comment\n\n")
         val tokens = lexer.lex()
         assertEquals(1, tokens.size)
@@ -68,7 +64,6 @@ class LexerTest {
     @Test
     fun `test single line comment in comment`() {
         val comment = "// hello world // hello world"
-        diag.load(comment)
         lexer.open("$comment\n")
         val tokens = lexer.lex()
         assertEquals(1, tokens.size)
@@ -80,7 +75,6 @@ class LexerTest {
     @Test
     fun `test single line comment wrapped`() {
         val comment = "// hello world"
-        diag.load(comment)
         lexer.open("class A is $comment\n\nend")
         val tokens = lexer.lex()
         assertEquals(5, tokens.size)
@@ -93,7 +87,7 @@ class LexerTest {
         assertFalse { diag.hasErrors }
 
         val dumpStream = ByteArrayOutputStream()
-        tokens.dump(PrintStream(dumpStream))
+        tokens.tokens.dump(PrintStream(dumpStream))
         val dumpLines = dumpStream.toString().lines()
 
         assertEquals(tokens.size, dumpLines.size)
@@ -107,7 +101,6 @@ class LexerTest {
     @Test
     fun `test class dummy`() {
         val code = "class A is end"
-        diag.load(code)
         lexer.open(code)
         val tokens = lexer.lex()
         assertEquals(4, tokens.size)
@@ -123,7 +116,6 @@ class LexerTest {
         val code = """
             class A extends B is end
         """.trimIndent()
-        diag.load(code)
         lexer.open(code)
         val tokens = lexer.lex()
         assertEquals(6, tokens.size)
@@ -142,7 +134,6 @@ class LexerTest {
         val code = """
             4.21.3
         """.trimIndent()
-        diag.load(code)
         lexer.open(code)
         lexer.lex()
 
@@ -154,7 +145,6 @@ class LexerTest {
         val code = """
             4variable := 6
         """.trimIndent()
-        diag.load(code)
         lexer.open(code)
         lexer.lex()
 
@@ -166,7 +156,6 @@ class LexerTest {
         val code = """
             method test(a: Integer, b: Integer)
         """.trimIndent()
-        diag.load(code)
         lexer.open(code)
         val expectedTokens = listOf(
             TokenKind.METHOD, TokenKind.IDENTIFIER, TokenKind.LPAREN, TokenKind.IDENTIFIER, TokenKind.COLON,
@@ -182,7 +171,6 @@ class LexerTest {
         val code = """
             method test => 1
         """.trimIndent()
-        diag.load(code)
         lexer.open(code)
         val expectedTokens = listOf(
             TokenKind.METHOD, TokenKind.IDENTIFIER, TokenKind.WIDE_ARROW, TokenKind.INT_LITERAL
@@ -196,7 +184,6 @@ class LexerTest {
         val code = """
             b := 3
         """.trimIndent()
-        diag.load(code)
         lexer.open(code)
         val expectedTokens = listOf(TokenKind.IDENTIFIER, TokenKind.ASSIGN, TokenKind.INT_LITERAL)
 
@@ -208,7 +195,6 @@ class LexerTest {
         val code = """
             var b : 3
         """.trimIndent()
-        diag.load(code)
         lexer.open(code)
         val expectedTokens = listOf(TokenKind.VAR, TokenKind.IDENTIFIER, TokenKind.COLON, TokenKind.INT_LITERAL)
 
@@ -220,7 +206,6 @@ class LexerTest {
         val code = """
             class Array[T] extends AnyRef
         """.trimIndent()
-        diag.load(code)
         lexer.open(code)
         val expectedTokens = listOf(
             TokenKind.CLASS, TokenKind.IDENTIFIER, TokenKind.LSQUARE, TokenKind.IDENTIFIER, TokenKind.RSQUARE,
@@ -238,7 +223,6 @@ class LexerTest {
                 a.set(i,x.Mult())
             end
         """.trimIndent()
-        diag.load(code)
         lexer.open(code)
         val expectedTokens = listOf(
             TokenKind.WHILE, TokenKind.IDENTIFIER, TokenKind.DOT, TokenKind.IDENTIFIER, TokenKind.LPAREN,
@@ -264,7 +248,6 @@ class LexerTest {
             	end
             end
         """.trimIndent()
-        diag.load(code)
         lexer.open(code)
         val expectedTokens = listOf(
             TokenKind.CLASS, TokenKind.IDENTIFIER, TokenKind.IS, TokenKind.METHOD, TokenKind.IDENTIFIER,
@@ -290,6 +273,6 @@ class LexerTest {
         val tokens = lexer.lex()
 
         assertFalse(diag.hasErrors)
-        assertEquals(expectedTokens, tokens.map { it.kind })
+        assertEquals(expectedTokens, tokens.tokens.map { it.kind })
     }
 }

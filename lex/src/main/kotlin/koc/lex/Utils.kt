@@ -93,7 +93,7 @@ fun Lexer.Companion.fromOptions(
 
 
 fun Token.asWindow(tokens: List<Token>): Window {
-    return Window(this, this, Tokens(tokens))
+    return Window(this, this, tokens)
 }
 
 fun Diagnostics.diag(msg: DiagMessage, token: Token) {
@@ -114,7 +114,7 @@ fun formatTokens(
     leadingLines: UInt = 0u,
     trailingLines: UInt = 0u
 ) = formatTokens(
-    window.allTokens.tokens, window.start, window.end,
+    window.allTokens, window.start, window.end,
     highlight?.start, highlight?.end, message, showLines, showFileName, showHighlightedPos,
     leadingLines = leadingLines, trailingLines = trailingLines
 )
@@ -130,7 +130,8 @@ fun formatTokens(
     showFileName: Boolean = false,
     showHighlightedPos: Boolean = false,
     leadingLines: UInt = 0u,
-    trailingLines: UInt = 0u
+    trailingLines: UInt = 0u,
+    onlyWindow: Boolean = false
 ): String {
     if (tokens.isEmpty()) return ""
 
@@ -189,7 +190,7 @@ fun formatTokens(
         res.appendLine("${" ".repeat(lineNoIndent.length - 3)}-> ${tokens[highlightStart!!].start.toVerboseString()}")
     }
 
-    for (i in tokens.indices) {
+    for (i in if (onlyWindow) start..end else tokens.indices) {
         val token = tokens[i]
         if (token.start.line + leadingLines < tokens[start].start.line) continue
         if (token.end.line > tokens[end].end.line + trailingLines) break

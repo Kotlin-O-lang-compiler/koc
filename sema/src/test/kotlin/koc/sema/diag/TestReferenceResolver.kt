@@ -37,7 +37,7 @@ class TestReferenceResolver {
         diag = Diagnostics()
         lexer = Lexer.fromOptions(diag = diag)
         parser = Parser.fromOptions(diag = diag)
-        typeManager = TypeManager(lexer, parser)
+        typeManager = TypeManager(Lexer.fromOptions(diag = diag), Parser.fromOptions(diag = diag))
     }
 
     @Test
@@ -51,7 +51,7 @@ class TestReferenceResolver {
         assertFalse(diag.hasErrors)
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)
@@ -74,7 +74,7 @@ class TestReferenceResolver {
         assertFalse(diag.hasErrors)
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)
@@ -103,7 +103,7 @@ class TestReferenceResolver {
         val b = nodes[1] as ClassDecl
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertFalse(diag.hasErrors)
@@ -120,6 +120,7 @@ class TestReferenceResolver {
         val code = """
             class A is
                 var x: 0
+                method x is end
                 var y: this.x
             end
         """.trimIndent()
@@ -131,11 +132,11 @@ class TestReferenceResolver {
         val a = nodes[0] as ClassDecl
         val x = a.body.members.first() as FieldDecl
         val y = a.body.members.last() as FieldDecl
-        val thisRef = (y.varDecl.initializer as MemberAccessExpr).left
+        val thisRef = (y.varDecl.initializer as MemberAccessExpr).left as RefExpr
         val thisX = (y.varDecl.initializer as MemberAccessExpr).member as RefExpr
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertFalse(diag.hasErrors)
@@ -167,7 +168,7 @@ class TestReferenceResolver {
         val x2 = a.body.members.last() as FieldDecl
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)
@@ -203,7 +204,7 @@ class TestReferenceResolver {
         val x2 = fooBody.body.nodes.last() as VarDecl
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)
@@ -239,7 +240,7 @@ class TestReferenceResolver {
         val x2 = fooBody.body.nodes[1] as VarDecl
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)
@@ -269,7 +270,7 @@ class TestReferenceResolver {
         val x2 = foo.params!!.params.first()
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)
@@ -299,7 +300,7 @@ class TestReferenceResolver {
         val x2 = (foo.body as MethodBody.MBody).body.nodes[0] as VarDecl
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)
@@ -327,7 +328,7 @@ class TestReferenceResolver {
         val x2 = a.body.members.first() as FieldDecl
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)
@@ -354,12 +355,41 @@ class TestReferenceResolver {
         val y = (x.varDecl.initializer as RefExpr)
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)
         diag.has<UndefinedReferenceKind>()
         val msg = diag.diagnostics.first() as UndefinedReference
         assertSame(y, msg.ref)
+    }
+
+
+    @Test
+    fun `test field literal type`() {
+        val code = """
+            class A is
+                var x: 0
+                var y: true
+            end
+        """.trimIndent()
+
+        val tokens = lexer.lex(code)
+        val nodes = parser.parseNodes(tokens)
+        assertFalse(diag.hasErrors)
+
+        val a = nodes[0] as ClassDecl
+        val x = a.body.members.first() as FieldDecl
+        val y = a.body.members.last() as FieldDecl
+
+        semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
+            performSemaStage(nodes, stage, typeManager)
+        }
+
+        assertFalse(diag.hasErrors)
+        assertSame(typeManager.intType, x.rootType)
+        assertSame(x, x.type.field)
+        assertSame(typeManager.boolType, y.rootType)
+        assertSame(y, y.type.field)
     }
 }

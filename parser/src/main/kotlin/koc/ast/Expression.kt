@@ -1,14 +1,12 @@
 package koc.ast
 
+import koc.ast.visitor.Visitor
 import koc.lex.Token
 import koc.lex.TokenKind
-import koc.lex.Tokens
 import koc.lex.Window
 import koc.parser.ast.Attribute
 import koc.parser.ast.Identifier
-import koc.ast.visitor.Visitor
 import koc.parser.walk
-import kotlin.collections.plusAssign
 
 
 sealed class Expr : Node(), Typed
@@ -19,15 +17,17 @@ class InvalidExpr : Expr() {
     }
 
     override val window: Window
-        get() = Window(0, 0, Tokens(emptyList()))
+        get() = Window(0, 0, emptyList())
 
     private var _type: ClassType? = null
 
     override val type: ClassType
         get() {
-            ensureAfterSema()
             return _type!!
         }
+
+    override val isTypeKnown: Boolean
+        get() = _type != null
 
     override val rootType: ClassType
         get() = type
@@ -43,19 +43,21 @@ class InvalidExpr : Expr() {
 data class RefExpr(val identifierToken: Token, val generics: GenericParams? = null) : Expr(), Typed {
     val identifier: Identifier get() = Identifier(identifierToken.value)
 
-    private var _type: ClassType? = null
+    private var _type: Type? = null
 
     /**
      * Type of reference destination
      */
-    override val type: ClassType
+    override val type: RefType
         get() {
-            ensureAfterSema()
-            return _type!!
+            return (_type!! as? RefType) ?: throw IllegalStateException("Type is invalid: ${(_type!! as ClassType)}")
         }
 
+    override val isTypeKnown: Boolean
+        get() = _type != null
+
     override val rootType: ClassType
-        get() = type
+        get() = type.rootType
 
     val isThis: Boolean
         get() = identifierToken.kind == TokenKind.THIS
@@ -65,15 +67,18 @@ data class RefExpr(val identifierToken: Token, val generics: GenericParams? = nu
         get() = _ref
 
     fun specifyRef(decl: Decl) {
-        require(_ref == null)
+        if (_ref != null) require(
+            (decl is MethodDecl && _ref is MethodDecl && decl.identifier == _ref!!.identifier)
+                || (decl is ConstructorDecl && _ref is ClassDecl && decl.outerDecl.identifier == _ref!!.identifier)
+        )
         _ref = decl
     }
 
     override val window: Window
-        get() = Window(identifierToken, generics?.tokens?.last() ?: identifierToken, allTokens)
+        get() = Window(identifierToken, generics?.tokens?.last() ?: identifierToken, allTokens.tokens)
 
     override fun specifyType(type: Type) {
-        require(type is ClassType)
+        require(type is RefType || type is ClassType)
         _type = type
     }
 
@@ -88,15 +93,17 @@ class IntegerLiteral(val token: Token) : Expr() {
         }
 
     override val window: Window
-        get() = Window(token, token, allTokens)
+        get() = Window(token, token, allTokens.tokens)
 
     private var _type: ClassType? = null
 
     override val type: ClassType
         get() {
-            ensureAfterSema()
             return _type!!
         }
+
+    override val isTypeKnown: Boolean
+        get() = _type != null
 
     override val rootType: ClassType
         get() = type
@@ -117,15 +124,17 @@ class RealLiteral(val token: Token) : Expr() {
         }
 
     override val window: Window
-        get() = Window(token, token, allTokens)
+        get() = Window(token, token, allTokens.tokens)
 
     private var _type: ClassType? = null
 
     override val type: ClassType
         get() {
-            ensureAfterSema()
             return _type!!
         }
+
+    override val isTypeKnown: Boolean
+        get() = _type != null
 
     override val rootType: ClassType
         get() = type
@@ -146,15 +155,17 @@ class BooleanLiteral(val token: Token) : Expr() {
         }
 
     override val window: Window
-        get() = Window(token, token, allTokens)
+        get() = Window(token, token, allTokens.tokens)
 
     private var _type: ClassType? = null
 
     override val type: ClassType
         get() {
-            ensureAfterSema()
             return _type!!
         }
+
+    override val isTypeKnown: Boolean
+        get() = _type != null
 
     override val rootType: ClassType
         get() = type
@@ -171,6 +182,9 @@ class CallExpr(val ref: RefExpr, val lparen: Token, val rparen: Token) : Expr() 
     private val _args = ArrayList<Argument>()
 
     val args: List<Argument> get() = _args
+
+    val argumentTypes: List<ClassType>
+        get() = args.map { it.rootType }
 
     operator fun plusAssign(arg: Expr) {
         _args += Argument(arg)
@@ -192,15 +206,17 @@ class CallExpr(val ref: RefExpr, val lparen: Token, val rparen: Token) : Expr() 
     val isConstructorCall: Boolean get() = Attribute.CONSTRUCTOR_CALL in attrs
 
     override val window: Window
-        get() = Window(ref.tokens.first(), rparen, allTokens)
+        get() = Window(ref.tokens.first(), rparen, allTokens.tokens)
 
     private var _type: ClassType? = null
 
     override val type: ClassType
         get() {
-            ensureAfterSema()
             return _type!!
         }
+
+    override val isTypeKnown: Boolean
+        get() = _type != null
 
     override val rootType: ClassType
         get() = type
@@ -216,7 +232,7 @@ class CallExpr(val ref: RefExpr, val lparen: Token, val rparen: Token) : Expr() 
 }
 
 class MemberAccessExpr(
-    val left: RefExpr,
+    val left: Expr,
     val dot: Token,
     val member: Expr
 ) : Expr() {
@@ -227,15 +243,17 @@ class MemberAccessExpr(
     val isCall: Boolean get() = member is CallExpr || (member is MemberAccessExpr && member.isCall)
 
     override val window: Window
-        get() = Window(left.tokens.first(), member.tokens.last(), allTokens)
+        get() = Window(left.tokens.first(), member.tokens.last(), allTokens.tokens)
 
     private var _type: ClassType? = null
 
     override val type: ClassType
         get() {
-            ensureAfterSema()
             return _type!!
         }
+
+    override val isTypeKnown: Boolean
+        get() = _type != null
 
     override val rootType: ClassType
         get() = type

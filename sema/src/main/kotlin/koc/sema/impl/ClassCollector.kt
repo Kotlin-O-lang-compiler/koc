@@ -13,7 +13,12 @@ import koc.sema.diag.DeclRedefinition
 class ClassCollector(
     private val typeManager: TypeManager, private val diag: Diagnostics, private val scopeManager: ScopeManager
 ) : AbstractVoidInsightVisitor() {
+
     override fun visit(classDecl: ClassDecl): Insight {
+        if (classDecl.isBuiltIn) {
+            scopeManager += classDecl
+            return Insight.SKIP
+        }
         val name = classDecl.identifier.value
         if (name in TypeManager.builtinTypes) {
             diag.diag(BuiltInClassRedefinition(classDecl), classDecl.identifierToken)

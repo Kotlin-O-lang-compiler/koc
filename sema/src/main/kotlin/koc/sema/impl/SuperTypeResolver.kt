@@ -16,6 +16,7 @@ class SuperTypeResolver(
     private val typeManager: TypeManager,
     private val diag: Diagnostics
 ) : AbstractVoidInsightVisitor() {
+    private val inheritanceChain = arrayListOf<Identifier>()
 
     override fun visit(classDecl: ClassDecl) = resolve(classDecl) {
         if (typeManager.hasType(classDecl.identifier)) return@resolve Insight.SKIP
@@ -28,6 +29,8 @@ class SuperTypeResolver(
             } else {
                 classDecl.enable(Attribute.BROKEN)
                 diag.diag(UndefinedReference(it), it.window)
+                it.specifyRef(typeManager.invalidDecl)
+                it.specifyType(typeManager.invalidType)
                 typeManager.invalidType
             }
         } ?: typeManager.classType
@@ -37,7 +40,6 @@ class SuperTypeResolver(
         return@resolve Insight.SKIP
     }
 
-    private val inheritanceChain = arrayListOf<Identifier>()
     private fun resolve(node: ClassDecl, withNode: (ClassDecl) -> Insight): Insight {
         inheritanceChain += node.identifier
         if (node.inTypeCheck) {

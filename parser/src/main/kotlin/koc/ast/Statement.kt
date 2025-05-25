@@ -15,7 +15,7 @@ class Assignment(
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, expr)
 
     override val window: Window
-        get() = Window(identifierToken, expr.tokens.last(), allTokens)
+        get() = Window(identifierToken, expr.tokens.last(), allTokens.tokens)
 }
 
 class ReturnNode(
@@ -25,7 +25,7 @@ class ReturnNode(
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, expr)
 
     override val window: Window
-        get() = Window(keyword, expr?.tokens?.last() ?: keyword, allTokens)
+        get() = Window(keyword, expr?.tokens?.last() ?: keyword, allTokens.tokens)
 }
 
 class WhileNode(
@@ -36,7 +36,7 @@ class WhileNode(
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, cond, body)
 
     override val window: Window
-        get() = Window(keyword, body.tokens.last(), allTokens)
+        get() = Window(keyword, body.tokens.last(), allTokens.tokens)
 }
 
 class IfNode(
@@ -50,5 +50,5 @@ class IfNode(
     )
 
     override val window: Window
-        get() = Window(ifToken, elseBody?.tokens?.last() ?: thenBody.tokens.last(), allTokens)
+        get() = Window(ifToken, elseBody?.tokens?.last() ?: thenBody.tokens.last(), allTokens.tokens)
 }

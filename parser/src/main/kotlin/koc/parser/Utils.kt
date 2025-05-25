@@ -104,15 +104,5 @@ fun Parser.Companion.fromOptions(
     @Suppress("unused") opts: KocOptions = KocOptions(), diag: Diagnostics// = Diagnostics()
 ): Parser = ParserImpl(diag)
 
-fun Diagnostics.load(tokens: List<Token>) {
-    val code = formatTokens(tokens, 0, tokens.size - 1, showLines = false)
-    load(code)
-}
-
-fun Diagnostics.loadIfEmpty(tokens: List<Token>) {
-    val code = formatTokens(tokens, 0, tokens.size - 1, showLines = false)
-    loadIfEmpty(code)
-}
-
 val Params?.size: Int
     get() = this?.params?.size ?: 0

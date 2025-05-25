@@ -18,6 +18,7 @@ import koc.ast.visitor.Insight
 import koc.parser.impl.ParserImpl
 import koc.core.Diagnostics
 import koc.core.Position
+import koc.lex.Tokens
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import kotlin.test.Test
@@ -49,7 +50,7 @@ class TestVisitor {
         Token(TokenKind.END, Position(4u, 13u, "test"))
     )
 
-    private val classDecl = ParserImpl(Diagnostics()).parseClassDecl(classTokens)
+    private val classDecl = ParserImpl(Diagnostics()).parseClassDecl(Tokens(classTokens, emptyList()))
 
     @Test
     fun `test top down`() {

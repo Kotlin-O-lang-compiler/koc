@@ -2,7 +2,7 @@ package koc.core
 
 import java.io.PrintStream
 
-class Diagnostics(code: String = "", private val outstream: PrintStream = System.out, private val errstream: PrintStream = System.err) {
+class Diagnostics(/*code: String = "",*/ private val outstream: PrintStream = System.out, private val errstream: PrintStream = System.err) {
     private val diags = mutableListOf<DiagMessage>()
     val diagnostics: List<DiagMessage> get() = diags
 
@@ -14,18 +14,18 @@ class Diagnostics(code: String = "", private val outstream: PrintStream = System
         return diagnostics.any { it.kind is T }
     }
 
-    private var code = code.lines()
+//    private var code = code.lines()
 
-    fun load(code: String) {
-        clear()
-        this.code = code.lines()
-    }
+//    fun load(code: String) {
+//        clear()
+//        this.code = code.lines()
+//    }
 
-    fun loadIfEmpty(code: String) {
-        if (diags.isEmpty() && (this.code.isEmpty() || this.code.size == 1 && this.code.first().isEmpty())) {
-            load(code)
-        }
-    }
+//    fun loadIfEmpty(code: String) {
+//        if (diags.isEmpty() && (this.code.isEmpty() || this.code.size == 1 && this.code.first().isEmpty())) {
+//            load(code)
+//        }
+//    }
 
     private inline fun <T> add(msg: DiagMessage, action: Diagnostics.(out: PrintStream) -> T): T {
         diags += msg
@@ -38,11 +38,11 @@ class Diagnostics(code: String = "", private val outstream: PrintStream = System
     }
 
     fun diag(msg: DiagMessage, pos: Position) = add(msg) { out ->
-        out.println(formatCode(code, pos, pos, pos, pos, msg.extraMessage, leadingLines = 1u, trailingLines = 0u))
+        out.println(formatCode(msg.code, pos, pos, pos, pos, msg.extraMessage, leadingLines = 1u, trailingLines = 0u))
     }
 
     fun diag(msg: DiagMessage, start: Position, end: Position) = add(msg) { out ->
-        out.println(formatCode(code, start, end, start, end, msg.extraMessage, leadingLines = 1u, trailingLines = 0u, showHighlightedPos = true))
+        out.println(formatCode(msg.code, start, end, start, end, msg.extraMessage, leadingLines = 1u, trailingLines = 0u, showHighlightedPos = true))
     }
 
     fun clear() {

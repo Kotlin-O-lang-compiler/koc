@@ -43,7 +43,7 @@ class TestClassCollector {
         assertFalse(diag.hasErrors)
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is ClassCollector }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)

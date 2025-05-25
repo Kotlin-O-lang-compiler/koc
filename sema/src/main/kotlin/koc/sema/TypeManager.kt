@@ -67,9 +67,12 @@ class TypeManager(lexer: Lexer, parser: Parser) {
             intDecl.identifier.value to intDecl,
             boolDecl.identifier.value to boolDecl,
             realDecl.identifier.value to realDecl,
-            invalidDecl.identifier.value to invalidDecl
+//            invalidDecl.identifier.value to invalidDecl
         )
     }
+
+    val builtInDeclarations: List<ClassDecl>
+        get() = builtInDecls.values.toList()
 
     private val types by lazy {
         mutableMapOf<String, ClassType>(
@@ -98,40 +101,58 @@ class TypeManager(lexer: Lexer, parser: Parser) {
         types[type.identifier.value] = type
     }
 
-    val classDecl = parser.parseClassDecl(lexer.lex(CLASS_SOURCE_CODE, STD_FILE_NAME)).apply {
-        enable(Attribute.BUILTIN)
-        specifyType(ClassType(this, null))
-        specifyScope(ParseScope.topLevel)
+    val classDecl = lexer.lex(CLASS_SOURCE_CODE, STD_FILE_NAME).let { tokens ->
+        parser.parseClassDecl(tokens).apply {
+            enable(Attribute.BUILTIN)
+            specifyType(ClassType(this, null))
+            specifyScope(ParseScope.topLevel)
+            specifyTokens(tokens)
+        }
     }
 
-    val anyValueDecl = parser.parseClassDecl(lexer.lex(ANY_VALUE_SOURCE_CODE, STD_FILE_NAME)).apply {
-        enable(Attribute.BUILTIN)
-        specifyType(ClassType(this, classType))
-        specifyScope(ParseScope.topLevel)
+    val anyValueDecl = lexer.lex(ANY_VALUE_SOURCE_CODE, STD_FILE_NAME).let { tokens ->
+        parser.parseClassDecl(tokens).apply {
+            enable(Attribute.BUILTIN)
+            specifyType(ClassType(this, classType))
+            specifyScope(ParseScope.topLevel)
+            specifyTokens(tokens)
+        }
     }
 
-    val anyRefDecl = parser.parseClassDecl(lexer.lex(ANY_REF_SOURCE_CODE, STD_FILE_NAME)).apply {
-        enable(Attribute.BUILTIN)
-        specifyType(ClassType(this, classType))
-        specifyScope(ParseScope.topLevel)
+    val anyRefDecl = lexer.lex(ANY_REF_SOURCE_CODE, STD_FILE_NAME).let { tokens ->
+        parser.parseClassDecl(tokens).apply {
+            enable(Attribute.BUILTIN)
+            specifyType(ClassType(this, classType))
+            specifyScope(ParseScope.topLevel)
+            specifyTokens(tokens)
+        }
     }
 
-    val intDecl = parser.parseClassDecl(lexer.lex(INTEGER_SOURCE_CODE, STD_FILE_NAME)).apply {
-        enable(Attribute.BUILTIN)
-        specifyType(ClassType(this, anyValueType))
-        specifyScope(ParseScope.topLevel)
+    val intDecl = lexer.lex(INTEGER_SOURCE_CODE, STD_FILE_NAME).let { tokens ->
+        parser.parseClassDecl(tokens).apply {
+            enable(Attribute.BUILTIN)
+            specifyType(ClassType(this, anyValueType))
+            specifyScope(ParseScope.topLevel)
+            specifyTokens(tokens)
+        }
     }
 
-    val boolDecl = parser.parseClassDecl(lexer.lex(BOOLEAN_SOURCE_CODE, STD_FILE_NAME)).apply {
-        enable(Attribute.BUILTIN)
-        specifyType(ClassType(this, anyValueType))
-        specifyScope(ParseScope.topLevel)
+    val boolDecl = lexer.lex(BOOLEAN_SOURCE_CODE, STD_FILE_NAME).let { tokens ->
+        parser.parseClassDecl(tokens).apply {
+            enable(Attribute.BUILTIN)
+            specifyType(ClassType(this, anyValueType))
+            specifyScope(ParseScope.topLevel)
+            specifyTokens(tokens)
+        }
     }
 
-    val realDecl = parser.parseClassDecl(lexer.lex(REAL_SOURCE_CODE, STD_FILE_NAME)).apply {
-        enable(Attribute.BUILTIN)
-        specifyType(ClassType(this, anyValueType))
-        specifyScope(ParseScope.topLevel)
+    val realDecl = lexer.lex(REAL_SOURCE_CODE, STD_FILE_NAME).let { tokens ->
+        parser.parseClassDecl(tokens).apply {
+            enable(Attribute.BUILTIN)
+            specifyType(ClassType(this, anyValueType))
+            specifyScope(ParseScope.topLevel)
+            specifyTokens(tokens)
+        }
     }
 
     val invalidDecl = ClassDecl(
@@ -238,7 +259,7 @@ end
 private const val REAL_SOURCE_CODE = """
 class $REAL_ID extends $ANY_VALUE_ID is
     this(p: $REAL_ID) is end
-    this(p: $REAL_ID) is end
+    this(p: $INTEGER_ID) is end
     
     var Min : $REAL_ID
     var Max : $REAL_ID

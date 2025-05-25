@@ -1,13 +1,13 @@
 package koc.parser
 
-import koc.lex.Token
 import koc.ast.Node
-import koc.parser.impl.ParserImpl
 import koc.core.Diagnostics
+import koc.lex.Tokens
+import koc.parser.impl.ParserImpl
 
 fun parse(
-    source: List<Token>,
-    diag: Diagnostics// = Diagnostics()
+    source: Tokens,
+    diag: Diagnostics
 ): List<Node> {
     val parser = Parser.fromOptions(diag = diag) as ParserImpl
     return parser.parseNodes(source)

@@ -39,4 +39,3 @@ class Compiler : CliktCommand(help = "Options for running koc") {
     }
 }
 
-fun main(args: Array<String>) = Compiler().main(args)

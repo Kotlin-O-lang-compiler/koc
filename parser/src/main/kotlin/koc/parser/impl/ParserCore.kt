@@ -13,17 +13,17 @@ import koc.parser.nextPosition
 internal class ParserCore(private val diag: Diagnostics) {
     private var idx = -1
 
-    private val tokens = arrayListOf<Token>()
+    private var tokens: Tokens = Tokens(emptyList(), emptyList())
 
-    val currentTokens: List<Token> get() = tokens
+    val currentTokens: List<Token> get() = tokens.tokens
 
     val currentIdx: Int get() = idx
 
-    val current: Token? get() = if (idx in tokens.indices) tokens[idx] else null
-    val next: Token? get() = if (nextNotCommentIdx() in tokens.indices) tokens[nextNotCommentIdx()] else null
+    val current: Token? get() = if (idx in tokens.tokens.indices) tokens.tokens[idx] else null
+    val next: Token? get() = if (nextNotCommentIdx() in tokens.tokens.indices) tokens.tokens[nextNotCommentIdx()] else null
 
     val allTokens: Tokens
-        get() = Tokens(tokens)
+        get() = tokens
 
     private var isBad = false
 
@@ -62,11 +62,11 @@ internal class ParserCore(private val diag: Diagnostics) {
         if (lookahead) previous()
         if (nxt == null) {
             isBad = true
-            diag.diag(LackOfToken(tokenKind), tokens.nextPosition)
+            diag.diag(LackOfToken(tokenKind, allTokens.code), tokens.tokens.nextPosition)
             return Token.invalid
         } else if (nxt.kind != tokenKind) {
             isBad = true
-            diag.diag(UnexpectedToken(nxt, tokenKind), nxt)
+            diag.diag(UnexpectedToken(nxt, tokenKind, allTokens.code), nxt)
             return Token.invalid
         }
 
@@ -81,10 +81,10 @@ internal class ParserCore(private val diag: Diagnostics) {
         val nxt = next()
         if (nxt == null) {
             isBad = true
-            diag.diag(LackOfToken(kinds), tokens.nextPosition)
+            diag.diag(LackOfToken(kinds, allTokens.code), tokens.tokens.nextPosition)
         } else {
             isBad = true
-            diag.diag(UnexpectedToken(nxt, kinds), nxt)
+            diag.diag(UnexpectedToken(nxt, kinds, allTokens.code), nxt)
         }
         return Token.invalid
     }
@@ -95,7 +95,7 @@ internal class ParserCore(private val diag: Diagnostics) {
         return nxt
     }
 
-    private fun previous() {
+    fun previous() {
         if (idx > 0) {
             idx--
         }
@@ -108,23 +108,32 @@ internal class ParserCore(private val diag: Diagnostics) {
         isBad = false
     }
 
-    fun skip(until: TokenKind): Token {
+    fun skip(until: TokenKind, lookahead: Boolean = true): Token {
         var cur = current
         while (cur != null && cur.kind != until) {
             cur = next()
         }
+        cur?.let { if (lookahead) previous() }
         return cur?.also { revive() } ?: Token.invalid.also { isBad = true }
     }
 
-    fun feed(tokens: List<Token>) {
-        this.tokens.clear()
+    fun skip(vararg until: TokenKind, lookahead: Boolean = true): Token {
+        var cur = current
+        while (cur != null && cur.kind !in until) {
+            cur = next()
+        }
+        cur?.let { if (lookahead) previous() }
+        return cur?.also { revive() } ?: Token.invalid.also { isBad = true }
+    }
+
+    fun feed(tokens: Tokens) {
+        this.tokens = tokens
         idx = -1
-        this.tokens += tokens
     }
 
     private fun nextNotCommentIdx(): Int {
         var increment = 1
-        while (tokens.size > idx + increment && tokens[idx + increment].kind == TokenKind.COMMENT) {
+        while (tokens.tokens.size > idx + increment && tokens.tokens[idx + increment].kind == TokenKind.COMMENT) {
             increment++
         }
         return idx + increment
@@ -157,6 +166,10 @@ data class ParseScope private constructor(
         val child = ParseScope(kind, depth.inc(), nextNestedWidth, this)
         children += child
         return child
+    }
+
+    fun inside(): ParseScope {
+        return children.first()
     }
 
     tailrec fun forEach(withParent: (ParseScope) -> Unit) {

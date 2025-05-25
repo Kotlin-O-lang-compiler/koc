@@ -67,13 +67,12 @@ sealed class Node() : Attributed {
     protected val allTokens: Tokens
         get() = _allTokens!!
 
+    val allCode: List<String>
+        get() = _allTokens!!.code
+
     fun specifyTokens(tokens: Tokens) {
         if (_allTokens != null) return
         _allTokens = tokens
-    }
-
-    fun specifyTokens(tokens: List<Token>) {
-        specifyTokens(Tokens(tokens))
     }
 
     abstract fun <T> visit(visitor: Visitor<T>): T?
@@ -135,7 +134,7 @@ class GenericParams(
     )
 
     override val window: Window
-        get() = Window(lsquare, rsquare, allTokens)
+        get() = Window(lsquare, rsquare, allTokens.tokens)
 }
 
 class ClassBody(val isToken: Token, val endToken: Token) : Node() {
@@ -156,7 +155,7 @@ class ClassBody(val isToken: Token, val endToken: Token) : Node() {
     )
 
     override val window: Window
-        get() = Window(isToken, endToken, allTokens)
+        get() = Window(isToken, endToken, allTokens.tokens)
 }
 
 /**
@@ -179,12 +178,15 @@ class Params(
 
     operator fun get(i: Int): Param = params[i]
 
+    val types: List<ClassType>
+        get() = params.map { param -> param.type.classType }
+
     override fun <T> visit(visitor: Visitor<T>): T? = walk(
         visitor, visitor.order, visitor.onBroken, *params.toTypedArray()
     )
 
     override val window: Window
-        get() = Window(lparenToken, rparenToken, allTokens)
+        get() = Window(lparenToken, rparenToken, allTokens.tokens)
 }
 
 /**
@@ -200,6 +202,12 @@ data class Argument(
     override val type: Type
         get() = expr.type
 
+    override val rootType: ClassType
+        get() = expr.rootType
+
+    override val isTypeKnown: Boolean
+        get() = expr.isTypeKnown
+
     override fun specifyType(type: Type) {
         expr.specifyType(type)
     }
@@ -207,7 +215,7 @@ data class Argument(
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, expr)
 
     override val window: Window
-        get() = Window(expr.tokens.first(), commaToken ?: expr.tokens.last(), allTokens)
+        get() = Window(expr.tokens.first(), commaToken ?: expr.tokens.last(), allTokens.tokens)
 }
 
 sealed class MethodBody(open val node: Node) : Node() {
@@ -228,7 +236,7 @@ sealed class MethodBody(open val node: Node) : Node() {
         override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, expr)
 
         override val window: Window
-            get() = Window(wideArrow, expr.tokens.last(), allTokens)
+            get() = Window(wideArrow, expr.tokens.last(), allTokens.tokens)
     }
 
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, node)
@@ -246,10 +254,14 @@ class Body(val isToken: Token? = null, val endToken: Token) : Node() {
         _nodes += statement
     }
 
+    operator fun plusAssign(expr: Expr) {
+        _nodes += expr
+    }
+
     override fun <T> visit(visitor: Visitor<T>): T? = walk(
         visitor, visitor.order, visitor.onBroken, *nodes.toTypedArray()
     )
 
     override val window: Window
-        get() = Window(isToken ?: nodes.tokens.first(), endToken, allTokens)
+        get() = Window(isToken ?: nodes.tokens.firstOrNull() ?: endToken, endToken, allTokens.tokens)
 }

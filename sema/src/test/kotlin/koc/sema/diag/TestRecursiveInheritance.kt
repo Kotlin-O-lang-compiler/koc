@@ -27,7 +27,7 @@ class TestRecursiveInheritance {
         diag = Diagnostics()
         lexer = Lexer.fromOptions(diag = diag)
         parser = Parser.fromOptions(diag = diag)
-        typeManager = TypeManager(lexer, parser)
+        typeManager = TypeManager(Lexer.fromOptions(diag = diag), Parser.fromOptions(diag = diag))
     }
 
     @Test
@@ -42,7 +42,7 @@ class TestRecursiveInheritance {
         val a = nodes.first() as ClassDecl
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is SuperTypeResolver }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)
@@ -64,7 +64,7 @@ class TestRecursiveInheritance {
         assertFalse(diag.hasErrors)
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is SuperTypeResolver }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)
@@ -89,7 +89,7 @@ class TestRecursiveInheritance {
         assertFalse(diag.hasErrors)
 
         semaVisitors(typeManager, diag).dropLastWhile { it !is SuperTypeResolver }.forEach { stage ->
-            performSemaStage(nodes, stage)
+            performSemaStage(nodes, stage, typeManager)
         }
 
         assertTrue(diag.hasErrors)

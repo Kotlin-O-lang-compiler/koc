@@ -2,8 +2,9 @@ package koc.sema
 
 import koc.ast.Node
 import koc.ast.visitor.Visitor
-import koc.sema.impl.ClassCollector
 import koc.core.Diagnostics
+import koc.sema.impl.ClassCollector
+import koc.sema.impl.ClassMemberReferenceCollector
 import koc.sema.impl.OverloadManager
 import koc.sema.impl.OverloadValidatorVisitor
 import koc.sema.impl.ReferenceResolver
@@ -14,7 +15,12 @@ fun performSema(nodes: List<Node>, typeManager: TypeManager, diag: Diagnostics) 
     semaStages(typeManager, diag).forEach { stage -> stage(nodes) }
 }
 
-fun performSemaStage(nodes: List<Node>, stage: Visitor<*>) {
+fun performSemaStage(nodes: List<Node>, stage: Visitor<*>, typeManager: TypeManager) {
+    typeManager.builtInDeclarations.forEach { node ->
+        node.visit(stage)
+        stage.reset()
+    }
+
     nodes.forEach { node ->
         node.visit(stage)
         stage.reset()
@@ -24,17 +30,19 @@ fun performSemaStage(nodes: List<Node>, stage: Visitor<*>) {
 fun semaStages(
     typeManager: TypeManager, diag: Diagnostics = Diagnostics()
 ): List<(List<Node>) -> Unit> = semaVisitors(typeManager, diag).map { stage ->
-    { nodes -> performSemaStage(nodes, stage) }
+    { nodes ->
+        performSemaStage(nodes, stage, typeManager)
+    }
 }
 
 fun semaVisitors(typeManager: TypeManager, diag: Diagnostics = Diagnostics()): List<Visitor<*>> {
     val scopeManager = ScopeManager(diag)
     val overloadManager = OverloadManager(diag)
-    scopeManager.initializeBuiltIn(typeManager)
     return listOf(
         ClassCollector(typeManager, diag, scopeManager),
-        ReferenceResolver(typeManager, diag, scopeManager),
         SuperTypeResolver(typeManager, diag),
-        OverloadValidatorVisitor(typeManager, diag, overloadManager),
+        ClassMemberReferenceCollector(/*typeManager, diag, */scopeManager),
+        OverloadValidatorVisitor(typeManager, diag, scopeManager, overloadManager),
+        ReferenceResolver(typeManager, diag, scopeManager, overloadManager),
     )
 }

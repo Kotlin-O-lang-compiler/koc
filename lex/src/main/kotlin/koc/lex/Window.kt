@@ -3,10 +3,10 @@ package koc.lex
 import kotlin.math.max
 import kotlin.math.min
 
-data class Window(val start: Int, val end: Int, val allTokens: Tokens) {
-    constructor(start: Token, end: Token, tokens: Tokens) : this(
-        if (start.isValid) tokens.tokens.indexOf(start) else -1,
-        if (start.isValid) tokens.tokens.indexOf(end) else -1,
+data class Window(val start: Int, val end: Int, val allTokens: List<Token>) {
+    constructor(start: Token, end: Token, tokens: List<Token>) : this(
+        if (start.isValid) tokens.indexOf(start) else -1,
+        if (start.isValid) tokens.indexOf(end) else -1,
         tokens
     )
 
@@ -17,13 +17,13 @@ data class Window(val start: Int, val end: Int, val allTokens: Tokens) {
     val endExclusive: Int
         get() = end + 1
 
-    val startToken: Token get() = allTokens.tokens[start]
-    val endToken: Token get() = allTokens.tokens[end]
+    val startToken: Token get() = allTokens[start]
+    val endToken: Token get() = allTokens[end]
 
-    override fun toString(): String = formatTokens(allTokens.tokens, start, end)
+    override fun toString(): String = formatTokens(allTokens, start, end, onlyWindow = true, showLines = false).trimIndent()
 
     val tokens: List<Token>
-        get() = if(start == -1 || end == -1) emptyList() else allTokens.tokens.subList(start, endExclusive)
+        get() = if(start == -1 || end == -1) emptyList() else allTokens.subList(start, endExclusive)
 
     fun areSameTokens(other: Window): Boolean = allTokens == other.allTokens
 

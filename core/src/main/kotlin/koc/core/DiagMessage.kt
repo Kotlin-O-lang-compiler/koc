@@ -7,4 +7,6 @@ abstract class DiagMessage(val kind: DiagKind) {
         get() = kind.verbosity
 
     open val extraMessage: String? = null
+
+    abstract val code: List<String>
 }

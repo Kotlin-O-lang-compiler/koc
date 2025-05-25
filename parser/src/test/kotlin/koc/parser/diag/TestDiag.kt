@@ -4,7 +4,7 @@ import koc.core.Diagnostics
 import koc.core.Position
 import koc.lex.Token
 import koc.lex.TokenKind
-import koc.parser.load
+import koc.lex.formatTokens
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.nio.charset.StandardCharsets
@@ -54,12 +54,19 @@ class TestDiag {
 
         withStreams(
             { out, err ->
-                val diag = Diagnostics(token.value, outstream = out, errstream = err)
-                diag.diag(UnexpectedToken(token, expected.kind), token.start, token.end)
+                val diag = Diagnostics(outstream = out, errstream = err)
+                diag.diag(
+                    UnexpectedToken(
+                        token,
+                        expected.kind,
+                        formatTokens(listOf(token), start = 0, end = 0, showLines = false, onlyWindow = true).lines()
+                    ), token.start, token.end
+                )
                 diag
             },
             check = { out, err, diag ->
-                assertHasLines(err,
+                assertHasLines(
+                    err,
                     "error: Unexpected token 'class', probably you mean '('",
                     " -> file:1:1",
                     "1 | class",
@@ -83,12 +90,24 @@ class TestDiag {
         withStreams(
             { out, err ->
                 val diag = Diagnostics(outstream = out, errstream = err)
-                diag.load(tokens)
-                diag.diag(UnexpectedToken(bad, expected.kind), bad.start, bad.end)
+                diag.diag(
+                    UnexpectedToken(
+                        bad,
+                        expected.kind,
+                        formatTokens(
+                            tokens,
+                            start = 0,
+                            end = tokens.lastIndex,
+                            showLines = false,
+                            onlyWindow = true
+                        ).lines()
+                    ), bad.start, bad.end
+                )
                 diag
             },
             check = { out, err, diag ->
-                assertHasLines(err,
+                assertHasLines(
+                    err,
                     "error: Unexpected token 'class', probably you mean identifier",
                     " -> file:1:8",
                     "1 | class  class MyClass",
@@ -114,13 +133,25 @@ class TestDiag {
         withStreams(
             { out, err ->
                 val diag = Diagnostics(outstream = out, errstream = err)
-                diag.load(tokens)
-                diag.diag(UnexpectedToken(bad, expected.kind), bad.start, bad.end)
+                diag.diag(
+                    UnexpectedToken(
+                        bad,
+                        expected.kind,
+                        formatTokens(
+                            tokens,
+                            start = 0,
+                            end = tokens.lastIndex,
+                            showLines = false,
+                            onlyWindow = true
+                        ).lines()
+                    ), bad.start, bad.end
+                )
                 diag
             },
             check = { out, err, diag ->
                 println(err)
-                assertHasLines(err,
+                assertHasLines(
+                    err,
                     "error: Unexpected token 'class', probably you mean identifier",
                     " -> file:3:4",
                     "2 |    is",

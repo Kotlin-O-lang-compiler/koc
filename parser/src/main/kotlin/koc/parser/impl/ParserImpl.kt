@@ -1,13 +1,7 @@
 package koc.parser.impl
 
-import koc.core.Diagnostics
-import koc.lex.Token
-import koc.lex.TokenKind
-import koc.lex.diag
-import koc.parser.Parser
 import koc.ast.Argument
 import koc.ast.Assignment
-import koc.parser.ast.Attribute
 import koc.ast.Body
 import koc.ast.BooleanLiteral
 import koc.ast.CallExpr
@@ -34,10 +28,16 @@ import koc.ast.Statement
 import koc.ast.TypeParam
 import koc.ast.VarDecl
 import koc.ast.WhileNode
+import koc.core.Diagnostics
+import koc.lex.Token
+import koc.lex.TokenKind
+import koc.lex.Tokens
+import koc.lex.diag
+import koc.parser.Parser
+import koc.parser.ast.Attribute
 import koc.parser.diag.LackOfNode
 import koc.parser.diag.OtherNodeExpected
 import koc.parser.diag.UnexpectedToken
-import koc.parser.loadIfEmpty
 import koc.parser.next
 
 class ParserImpl(
@@ -47,8 +47,8 @@ class ParserImpl(
 
     val currentTokenIdx: Int get() = core.currentIdx
 
-    override fun parseNodes(tokens: List<Token>): List<Node> {
-        diag.loadIfEmpty(tokens)
+    override fun parseNodes(tokens: Tokens): List<Node> {
+
         var token = 0
         val nodes = arrayListOf<Node>()
 
@@ -61,92 +61,77 @@ class ParserImpl(
         return nodes
     }
 
-    override fun parseClassDecl(tokens: List<Token>): ClassDecl {
-        diag.loadIfEmpty(tokens)
+    override fun parseClassDecl(tokens: Tokens): ClassDecl {
         core.feed(tokens)
         return parseClassDecl()
     }
 
-    override fun parseClassBody(tokens: List<Token>): ClassBody {
-        diag.loadIfEmpty(tokens)
+    override fun parseClassBody(tokens: Tokens): ClassBody {
         core.feed(tokens)
         return parseClassBody()
     }
 
-    override fun parseClassMemberDecl(tokens: List<Token>): ClassMemberDecl {
-        diag.loadIfEmpty(tokens)
+    override fun parseClassMemberDecl(tokens: Tokens): ClassMemberDecl {
         core.feed(tokens)
         return parseClassMemberDecl()
     }
 
-    override fun parseVarDecl(tokens: List<Token>): VarDecl {
-        diag.loadIfEmpty(tokens)
+    override fun parseVarDecl(tokens: Tokens): VarDecl {
         core.feed(tokens)
         return parseVarDecl()
     }
 
-    override fun parseMethod(tokens: List<Token>): MethodDecl {
-        diag.loadIfEmpty(tokens)
+    override fun parseMethod(tokens: Tokens): MethodDecl {
         core.feed(tokens)
         return parseMethod()
     }
 
-    override fun parseConstructor(tokens: List<Token>): ConstructorDecl {
-        diag.loadIfEmpty(tokens)
+    override fun parseConstructor(tokens: Tokens): ConstructorDecl {
         core.feed(tokens)
         return parseConstructor()
     }
 
-    override fun parseExpr(tokens: List<Token>): Expr {
-        diag.loadIfEmpty(tokens)
+    override fun parseExpr(tokens: Tokens): Expr {
         core.feed(tokens)
         return parseExpr()
     }
 
-    override fun parseIntegerLiteral(tokens: List<Token>): IntegerLiteral {
-        diag.loadIfEmpty(tokens)
+    override fun parseIntegerLiteral(tokens: Tokens): IntegerLiteral {
         core.feed(tokens)
         return parseIntegerLiteral()
     }
 
-    override fun parseRealLiteral(tokens: List<Token>): RealLiteral {
-        diag.loadIfEmpty(tokens)
+    override fun parseRealLiteral(tokens: Tokens): RealLiteral {
         core.feed(tokens)
         return parseRealLiteral()
     }
 
-    override fun parseBooleanLiteral(tokens: List<Token>): BooleanLiteral {
-        diag.loadIfEmpty(tokens)
+    override fun parseBooleanLiteral(tokens: Tokens): BooleanLiteral {
         core.feed(tokens)
         return parseBooleanLiteral()
     }
 
-    override fun parseRefExpr(tokens: List<Token>): RefExpr {
-        diag.loadIfEmpty(tokens)
+    override fun parseRefExpr(tokens: Tokens): RefExpr {
         core.feed(tokens)
         return parseRefExpr()
     }
 
-    override fun parseWhileLoop(tokens: List<Token>): WhileNode {
-        diag.loadIfEmpty(tokens)
+    override fun parseWhileLoop(tokens: Tokens): WhileNode {
         core.feed(tokens)
         return parseWhileLoop()
     }
 
-    override fun parseIfNode(tokens: List<Token>): IfNode {
-        diag.loadIfEmpty(tokens)
+    override fun parseIfNode(tokens: Tokens): IfNode {
         core.feed(tokens)
         return parseIf()
     }
 
-    override fun parseAssignment(tokens: List<Token>): Assignment {
-        diag.loadIfEmpty(tokens)
+    override fun parseAssignment(tokens: Tokens): Assignment {
         core.feed(tokens)
         return parseAssignment()
     }
 
-    override fun parseReturnNode(tokens: List<Token>): ReturnNode {
-        diag.loadIfEmpty(tokens)
+    override fun parseReturnNode(tokens: Tokens): ReturnNode {
         core.feed(tokens)
         return parseReturn()
     }
@@ -188,7 +173,7 @@ class ParserImpl(
             else -> {
                 if (first.kind != TokenKind.INVALID)
                     diag.diag(OtherNodeExpected(listOf(FieldDecl::class.simpleName!!, MethodDecl::class.simpleName!!,
-                        ConstructorDecl::class.simpleName!!)), first)
+                        ConstructorDecl::class.simpleName!!), allTokens.code), first)
                 MethodDecl(Token.invalid, Token.invalid) // invalid decl
             }
         }
@@ -308,13 +293,17 @@ class ParserImpl(
     private fun parseBodyNodes(vararg end: TokenKind = arrayOf(TokenKind.END)): List<Node> = with(core) {
         val statements = arrayListOf<Node>()
         while (next?.kind !in end) {
-            val lookahead = expect(statementStartToken + TokenKind.VAR, lookahead = true)
+            val lookahead = expect(statementStartToken + TokenKind.VAR/*, lookahead = true*/)
+            val isNextAssignment = next?.kind == TokenKind.ASSIGN
+            core.previous()
+
             statements += when (lookahead.kind) {
                 TokenKind.VAR -> parseVarDecl()
-                TokenKind.IDENTIFIER -> parseAssignment()
+                TokenKind.IDENTIFIER -> if (isNextAssignment) parseAssignment() else parseExpr()
                 TokenKind.WHILE -> parseWhileLoop()
                 TokenKind.IF -> parseIf()
                 TokenKind.RETURN -> parseReturn()
+                TokenKind.INVALID -> { skip(*end); break }
                 else -> throw IllegalStateException("unexpected $lookahead in body")
             }
         }
@@ -336,7 +325,8 @@ class ParserImpl(
                 when (node) {
                     is Statement -> this += node
                     is VarDecl -> this += node
-                    else -> throw IllegalStateException("Only statement or variable declaration")
+                    is Expr -> this += node
+                    else -> throw IllegalStateException("Only statement or variable declaration or expression")
                 }
             }
         }
@@ -361,33 +351,39 @@ class ParserImpl(
 
     private fun parseExpr(): Expr = core.parse<Expr> {
         val nxt = next
-            ?: return@parse diag.diag(LackOfNode(listOf(Expr::class.simpleName!!)), core.current?.end.next())
+            ?: return@parse diag.diag(LackOfNode(listOf(Expr::class.simpleName!!), allTokens.code), core.current?.end.next())
                 .let { InvalidExpr() }
-        when (nxt.kind) {
+        var expr = when (nxt.kind) {
             TokenKind.INT_LITERAL -> parseIntegerLiteral()
             TokenKind.REAL_LITERAL -> parseRealLiteral()
             TokenKind.TRUE -> parseBooleanLiteral()
             TokenKind.FALSE -> parseBooleanLiteral()
-            TokenKind.THIS, TokenKind.IDENTIFIER -> {
-                val ref = parseRefExpr()
-                if (next?.kind in listOf(TokenKind.DOT, TokenKind.LPAREN)) {
-                    val afterThis = expect(listOf(TokenKind.DOT, TokenKind.LPAREN))
-                    when (afterThis.kind) {
-                        TokenKind.DOT -> MemberAccessExpr(ref, afterThis, parseExpr())
-                        TokenKind.LPAREN -> {
-                            val args = parseArguments()
-                            val rparen = expect(TokenKind.RPAREN)
-                            CallExpr(ref, afterThis, rparen).apply { this += args }
-                        }
-                        else -> throw IllegalStateException("`(` or `.`")
-                    }
-                } else ref
-            }
-
-            else -> diag.diag(OtherNodeExpected(listOf(Expr::class.simpleName!!)), nxt).let {
+            TokenKind.THIS, TokenKind.IDENTIFIER -> parseRefExpr()
+            else -> diag.diag(OtherNodeExpected(listOf(Expr::class.simpleName!!), allTokens.code), nxt).let {
                 InvalidExpr()
             }
         }
+
+        while (expr !is InvalidExpr && next?.kind in listOf(TokenKind.DOT, TokenKind.LPAREN)) {
+            val afterThis = if (expr is RefExpr) expect(listOf(TokenKind.DOT, TokenKind.LPAREN))
+            else expect(TokenKind.DOT)
+
+            expr = core.parse<Expr> {
+                when (afterThis.kind) {
+                    TokenKind.DOT -> MemberAccessExpr(expr, afterThis, parseExpr())
+                    TokenKind.LPAREN -> {
+                        check(expr is RefExpr)
+                        val args = parseArguments()
+                        val rparen = expect(TokenKind.RPAREN)
+                        CallExpr(expr as RefExpr, afterThis, rparen).apply { this += args }
+                    }
+
+                    else -> throw IllegalStateException("`(` or `.`")
+                }
+            }
+        }
+
+        return@parse expr
     }
 
     private fun parseIntegerLiteral(): IntegerLiteral = core.parse<IntegerLiteral> {
@@ -427,7 +423,7 @@ class ParserImpl(
         return@parse RefExpr(identifier, generics).apply {
             if (isThis) {
                 enable(Attribute.BROKEN)
-                diag.diag(UnexpectedToken(lsquare, listOf()), lsquare)
+                diag.diag(UnexpectedToken(lsquare, listOf(), allTokens.code), lsquare)
             }
         }
     }

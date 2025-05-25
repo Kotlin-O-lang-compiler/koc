@@ -17,29 +17,30 @@ import koc.ast.RefExpr
 import koc.ast.ReturnNode
 import koc.ast.VarDecl
 import koc.ast.WhileNode
+import koc.lex.Tokens
 
 interface Parser {
-    fun parseNodes(tokens: List<Token>): List<Node>
-//    fun parse(tokens: List<Token>): Node
+    fun parseNodes(tokens: Tokens): List<Node>
+//    fun parse(tokens: Tokens): Node
 
-    fun parseClassDecl(tokens: List<Token>): ClassDecl
-    fun parseClassBody(tokens: List<Token>): ClassBody
-    fun parseClassMemberDecl(tokens: List<Token>): ClassMemberDecl
+    fun parseClassDecl(tokens: Tokens): ClassDecl
+    fun parseClassBody(tokens: Tokens): ClassBody
+    fun parseClassMemberDecl(tokens: Tokens): ClassMemberDecl
 
-    fun parseVarDecl(tokens: List<Token>): VarDecl
-    fun parseMethod(tokens: List<Token>): MethodDecl
-    fun parseConstructor(tokens: List<Token>): ConstructorDecl
+    fun parseVarDecl(tokens: Tokens): VarDecl
+    fun parseMethod(tokens: Tokens): MethodDecl
+    fun parseConstructor(tokens: Tokens): ConstructorDecl
 
-    fun parseExpr(tokens: List<Token>): Expr
-    fun parseIntegerLiteral(tokens: List<Token>): IntegerLiteral
-    fun parseRealLiteral(tokens: List<Token>): RealLiteral
-    fun parseBooleanLiteral(tokens: List<Token>): BooleanLiteral
-    fun parseRefExpr(tokens: List<Token>): RefExpr
+    fun parseExpr(tokens: Tokens): Expr
+    fun parseIntegerLiteral(tokens: Tokens): IntegerLiteral
+    fun parseRealLiteral(tokens: Tokens): RealLiteral
+    fun parseBooleanLiteral(tokens: Tokens): BooleanLiteral
+    fun parseRefExpr(tokens: Tokens): RefExpr
 
-    fun parseWhileLoop(tokens: List<Token>): WhileNode
-    fun parseIfNode(tokens: List<Token>): IfNode
-    fun parseAssignment(tokens: List<Token>): Assignment
-    fun parseReturnNode(tokens: List<Token>): ReturnNode
+    fun parseWhileLoop(tokens: Tokens): WhileNode
+    fun parseIfNode(tokens: Tokens): IfNode
+    fun parseAssignment(tokens: Tokens): Assignment
+    fun parseReturnNode(tokens: Tokens): ReturnNode
 
     companion object
 }

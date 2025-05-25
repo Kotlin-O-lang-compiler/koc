@@ -1,18 +1,18 @@
 package koc.driver
 
+import koc.ast.Node
+import koc.core.Diagnostics
+import koc.core.KocOptions
 import koc.driver.api.dumpParse
 import koc.driver.api.dumpTokens
 import koc.lex.Lexer
-import koc.lex.Token
+import koc.lex.Tokens
 import koc.lex.fromOptions
 import koc.parser.Parser
-import koc.ast.Node
 import koc.parser.fromOptions
 import koc.parser.parse
 import koc.sema.TypeManager
 import koc.sema.semaStages
-import koc.core.Diagnostics
-import koc.core.KocOptions
 import java.nio.file.Path
 import kotlin.io.path.name
 
@@ -42,12 +42,14 @@ class Kocpiler private constructor(
         opts: KocOptions = KocOptions(),
         lexer: Lexer = Lexer.fromOptions(opts, diag),
         parser: Parser = Parser.fromOptions(opts, diag),
-        typeManager: TypeManager = TypeManager(lexer, parser),
+        typeManager: TypeManager = TypeManager(Lexer.fromOptions(opts, Diagnostics()), Parser.fromOptions(opts, Diagnostics())),
     ) : this(diag, opts, lexer, parser, typeManager, Unit)
 
     val lexer: Lexer by lazy { initialLexer ?: Lexer.fromOptions(options, diag) }
     val parser: Parser by lazy { initialParser ?: Parser.fromOptions(options, diag) }
-    val typeManager: TypeManager by lazy { initialTypeManager ?: TypeManager(lexer, parser) }
+    val typeManager: TypeManager by lazy {
+        initialTypeManager ?: TypeManager(Lexer.fromOptions(options, Diagnostics()), Parser.fromOptions(options, Diagnostics()))
+    }
 
     val semaStages: List<(List<Node>) -> Unit>
         get() = semaStages(typeManager, diag)
@@ -64,9 +66,9 @@ class Kocpiler private constructor(
         run(tokens, name)
     }
 
-    private fun run(tokens: List<Token>, programName: String) {
+    private fun run(tokens: Tokens, programName: String) {
         if (options.dumpTokens) {
-            dumpTokens(tokens, programName, options)
+            dumpTokens(tokens.tokens, programName, options)
             return
         }
 
@@ -78,7 +80,13 @@ class Kocpiler private constructor(
         }
 
         semaStages.forEach { it(nodes) }
+        println("Finished")
 
         // TODO("codegen is not implemented yet")
+    }
+
+    companion object {
+        @JvmStatic
+        fun main(args: Array<String>) = Compiler().main(args)
     }
 }
