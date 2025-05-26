@@ -21,6 +21,7 @@ import koc.ast.VarType
 import koc.ast.visitor.AbstractVoidInsightVisitor
 import koc.ast.visitor.Insight
 import koc.core.Diagnostics
+import koc.lex.asWindow
 import koc.lex.diag
 import koc.parser.ast.Attribute
 import koc.parser.impl.ParseScope
@@ -75,7 +76,12 @@ class ReferenceResolver(
             return
         }
         if (vardecl.initializer.isTypeKnown) {
-            vardecl.specifyType(VarType(vardecl, vardecl.initializer.rootType))
+            if (vardecl.initializer.rootType.isUnit) {
+                diag.diag(NonReturningCallInExpr(vardecl.initializer), vardecl.initializer.window)
+                vardecl.initializer.enable(Attribute.BROKEN)
+                vardecl.enable(Attribute.BROKEN)
+                vardecl.specifyType(VarType(vardecl, typeManager.invalidType))
+            } else vardecl.specifyType(VarType(vardecl, vardecl.initializer.rootType))
         }
     }
 
@@ -113,9 +119,10 @@ class ReferenceResolver(
                 expr.ref.specifyRef(method)
                 expr.ref.specifyType(MethodRefType(method))
                 if (method.type.isVoid) {
-                    diag.diag(NonReturningCallInExpr(expr), expr.window)
-                    expr.enable(Attribute.BROKEN)
-                    expr.specifyType(typeManager.invalidType)
+//                    diag.diag(NonReturningCallInExpr(expr), expr.window)
+//                    expr.enable(Attribute.BROKEN)
+                    expr.specifyType(typeManager.unitType)
+//                    expr.specifyType(typeManager.invalidType)
                 } else {
                     expr.specifyType(method.type.retType!!)
                 }
@@ -127,7 +134,7 @@ class ReferenceResolver(
 
             val ctor = overloadManager.getSuitable(classDecl.identifier, expr.argumentTypes)
             if (ctor == null) {
-                diag.diag(NoSuitableConstructorCandidate(expr), expr.window)
+                diag.diag(NoSuitableConstructorCandidate(expr, classDecl), expr.window)
                 expr.enable(Attribute.BROKEN)
                 expr.ref.enable(Attribute.BROKEN)
                 expr.ref.specifyRef(typeManager.invalidDecl)
@@ -177,7 +184,10 @@ class ReferenceResolver(
             if (scopeManager.isDefined(expr.identifier, scope)) {
                 val decl = scopeManager.getDecl(expr.identifier, scope)
                 expr.specifyRef(decl)
-                val refType = if (decl is ClassDecl) ClassRefType(decl) else EntityRefType(decl)
+                val refType = if (decl.isBroken) {
+                    expr.enable(Attribute.BROKEN)
+                    typeManager.invalidType
+                } else if (decl is ClassDecl) ClassRefType(decl) else EntityRefType(decl)
                 expr.specifyType(refType)
             } else if (scopeManager.isMethodDefined(expr.identifier, scope)) {
                 diag.diag(MethodReferenceWithoutCall(expr), expr.window)
@@ -208,6 +218,11 @@ class ReferenceResolver(
     private fun visit(access: MemberAccessExpr, scope: ParseScope = access.scope): Insight {
         when (access.left) {
             is RefExpr -> visit(access.left as RefExpr, scope).also {
+                if (access.left.isBroken) {
+                    access.enable(Attribute.BROKEN)
+                    access.member.enable(Attribute.BROKEN)
+                    return Insight.SKIP
+                }
                 if ((access.left as RefExpr).type.isClass) {
                     diag.diag(MemberAccessOnClass(access), access.window)
                     access.enable(Attribute.BROKEN)
@@ -216,6 +231,14 @@ class ReferenceResolver(
             }
             is CallExpr -> visit(access.left as CallExpr, scope)
             else -> access.left.visit(this)
+        }
+
+        if (access.left.isBroken || access.left.rootType.isUnit) {
+            if (access.left.rootType.isUnit) diag.diag(NonReturningCallInExpr(access.left), access.left.window)
+            access.member.enable(Attribute.BROKEN)
+            access.specifyType(typeManager.invalidType)
+            access.enable(Attribute.BROKEN)
+            return Insight.SKIP
         }
 
         // require(member is CallExpr || member is RefExpr || member is MemberAccessExpr)

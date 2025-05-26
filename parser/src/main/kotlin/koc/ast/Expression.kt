@@ -50,7 +50,7 @@ data class RefExpr(val identifierToken: Token, val generics: GenericParams? = nu
      */
     override val type: RefType
         get() {
-            return (_type!! as? RefType) ?: throw IllegalStateException("Type is invalid: ${(_type!! as ClassType)}")
+            return (_type!! as? RefType) ?: throw IllegalStateException("Type is invalid: ${(_type!! as ClassType).identifier}")
         }
 
     override val isTypeKnown: Boolean

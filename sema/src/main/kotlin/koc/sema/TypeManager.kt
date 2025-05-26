@@ -1,5 +1,6 @@
 package koc.sema
 
+import koc.ast.Body
 import koc.ast.ClassBody
 import koc.ast.ClassDecl
 import koc.ast.ClassType
@@ -41,6 +42,9 @@ class TypeManager(lexer: Lexer, parser: Parser) {
     val invalidType: ClassType
         get() = ClassType(invalidDecl, null)
 
+    val unitType: ClassType
+        get() = unitDecl.type
+
     private val userDefinitions = hashMapOf<String, ClassDecl>()
 
     fun getUserDefinition(name: String): ClassDecl = userDefinitions[name]!!
@@ -67,6 +71,7 @@ class TypeManager(lexer: Lexer, parser: Parser) {
             intDecl.identifier.value to intDecl,
             boolDecl.identifier.value to boolDecl,
             realDecl.identifier.value to realDecl,
+//            unitDecl.identifier.value to unitDecl
 //            invalidDecl.identifier.value to invalidDecl
         )
     }
@@ -166,6 +171,16 @@ class TypeManager(lexer: Lexer, parser: Parser) {
         enable(Attribute.BROKEN)
     }
 
+    val unitDecl = ClassDecl(
+        Token(TokenKind.CLASS, fakeStdPos),
+        Token(UNIT_ID, TokenKind.IDENTIFIER, fakeStdPos),
+        body = ClassBody(Token(TokenKind.IS, fakeStdPos), Token(TokenKind.END, fakeStdPos))
+    ).apply {
+        specifyType(ClassType(this, null))
+        specifyScope(ParseScope.topLevel)
+        enable(Attribute.BUILTIN)
+    }
+
     val ClassDecl.isClass: Boolean get() = identifier.value == CLASS_ID
     val ClassDecl.isAnyValue: Boolean get() = identifier.value == ANY_VALUE_ID
     val ClassDecl.isAnyRef: Boolean get() = identifier.value == ANY_REF_ID
@@ -191,6 +206,7 @@ class TypeManager(lexer: Lexer, parser: Parser) {
         const val REAL_ID = "Real"
         const val BOOLEAN_ID = "Boolean"
         const val INVALID_ID = "\$invalid"
+        const val UNIT_ID = "\$Unit"
         val builtinTypes = arrayOf(CLASS_ID, ANY_VALUE_ID, INTEGER_ID, REAL_ID, BOOLEAN_ID)
 
         private const val STD_FILE_NAME = "std.ol"

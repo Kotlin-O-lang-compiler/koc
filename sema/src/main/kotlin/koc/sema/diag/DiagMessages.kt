@@ -1,16 +1,9 @@
 package koc.sema.diag
 
-import koc.ast.CallExpr
+import koc.ast.*
 import koc.core.DiagMessage
 import koc.lex.asWindow
 import koc.lex.formatTokens
-import koc.ast.ClassDecl
-import koc.ast.ConstructorDecl
-import koc.ast.Decl
-import koc.ast.MemberAccessExpr
-import koc.ast.MethodDecl
-import koc.ast.RefExpr
-import koc.ast.VarDecl
 import koc.parser.ast.Identifier
 import java.util.Locale
 
@@ -114,8 +107,8 @@ class ConstructorOverloadFailed(val ctor: ConstructorDecl, val candidates: List<
         get() = ctor.allCode
 }
 
-class NoSuitableConstructorCandidate(val call: CallExpr) : DiagMessage(NoSuitableCandidateKind) {
-    override fun toString(): String = "No suitable constructor on '${(call.ref.ref!! as ClassDecl).identifier}'"
+class NoSuitableConstructorCandidate(val call: CallExpr, val classDecl: ClassDecl) : DiagMessage(NoSuitableCandidateKind) {
+    override fun toString(): String = "No suitable constructor on '${classDecl.identifier}'"
 
     override val code: List<String>
         get() = call.allCode
@@ -135,11 +128,11 @@ class MethodReferenceWithoutCall(val ref: RefExpr) : DiagMessage(MethodReference
         get() = ref.allCode
 }
 
-class NonReturningCallInExpr(val call: CallExpr) : DiagMessage(NonReturningCallInExprKind) {
+class NonReturningCallInExpr(val expr: Expr) : DiagMessage(NonReturningCallInExprKind) {
     override fun toString(): String = "Non-returning method call cannot be a part of expression"
 
     override val code: List<String>
-        get() = call.allCode
+        get() = expr.allCode
 }
 
 class UnableToInferVariableType(val decl: VarDecl) : DiagMessage(UnableToInferVariableTypeKind) {

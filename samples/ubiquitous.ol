@@ -21,5 +21,6 @@ class Main is
 end
 
 class A is
+    this is end
     method foo is end
 end

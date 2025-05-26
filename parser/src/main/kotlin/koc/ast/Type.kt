@@ -38,13 +38,18 @@ sealed class Type() : Attributed {
  */
 data class ClassType(val classDecl: ClassDecl, val superType: ClassType?) : Type() {
     init {
-        require(superType != null || classDecl.identifier.value == "Class" || classDecl.identifier.value == "\$invalid") {
+        require(superType != null || classDecl.identifier.value == "Class"
+                || classDecl.identifier.value == "\$invalid" || classDecl.identifier.value == "\$Unit"
+        ) {
             "Only root `Class` declaration is allowed to not have super type"
         }
     }
 
     val identifier: Identifier
         get() = classDecl.identifier
+
+    val isUnit: Boolean
+        get() = identifier.value == "\$Unit"
 
     val isGeneric: Boolean
         get() = classDecl.generics != null && classDecl.generics.types.isNotEmpty()

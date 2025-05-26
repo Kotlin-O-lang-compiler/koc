@@ -293,13 +293,14 @@ class ParserImpl(
     private fun parseBodyNodes(vararg end: TokenKind = arrayOf(TokenKind.END)): List<Node> = with(core) {
         val statements = arrayListOf<Node>()
         while (next?.kind !in end) {
-            val lookahead = expect(statementStartToken + TokenKind.VAR/*, lookahead = true*/)
+            val lookahead = expect(statementStartToken + TokenKind.VAR + TokenKind.THIS/*, lookahead = true*/)
             val isNextAssignment = next?.kind == TokenKind.ASSIGN
             core.previous()
 
             statements += when (lookahead.kind) {
                 TokenKind.VAR -> parseVarDecl()
                 TokenKind.IDENTIFIER -> if (isNextAssignment) parseAssignment() else parseExpr()
+                TokenKind.THIS -> parseExpr()
                 TokenKind.WHILE -> parseWhileLoop()
                 TokenKind.IF -> parseIf()
                 TokenKind.RETURN -> parseReturn()

@@ -1,10 +1,6 @@
 package koc.sema.diag
 
-import koc.ast.CallExpr
-import koc.ast.ClassDecl
-import koc.ast.MemberAccessExpr
-import koc.ast.MethodRefType
-import koc.ast.VarDecl
+import koc.ast.*
 import koc.core.Diagnostics
 import koc.lex.Lexer
 import koc.lex.fromOptions
@@ -63,8 +59,68 @@ class TestTypeCheck {
         diag.has<NonReturningCallInExprKind>()
         val msg = diag.diagnostics.first() as NonReturningCallInExpr
         val call = initializer.member as CallExpr
-        assertSame(msg.call, call)
+        assertSame(msg.expr, initializer)
+        assertSame(typeManager.unitType, call.type)
         assertTrue(call.ref.type.isMethod)
         assertSame(foo, (call.ref.type as MethodRefType).method)
+    }
+
+    @Test
+    fun `test void call as expr in member access`() {
+        val code = """
+            class A is
+                this is
+                    this.foo().foo()
+                end
+                method foo is end
+            end
+        """.trimIndent()
+
+        val tokens = lexer.lex(code)
+        val nodes = parser.parseNodes(tokens)
+        assertFalse(diag.hasErrors)
+
+        semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
+            performSemaStage(nodes, stage, typeManager)
+        }
+
+        val a = nodes[0] as ClassDecl
+        val ctor = a.constructors.first()
+        val callChain = ctor.body.nodes.first() as MemberAccessExpr
+        val thisExpr = callChain.left as RefExpr
+        val foo = a.methods.first()
+        val fooAccess = callChain.member as MemberAccessExpr
+        val foo1 = fooAccess.left as CallExpr
+        val foo2 = fooAccess.member as CallExpr
+
+        assertTrue(diag.hasErrors)
+        diag.has<NonReturningCallInExprKind>()
+        val msg = diag.diagnostics.first() as NonReturningCallInExpr
+        assertSame(msg.expr, foo1)
+        assertSame(typeManager.unitType, foo1.type)
+        assertTrue(foo1.ref.type.isMethod)
+        assertSame(foo, (foo1.ref.type as MethodRefType).method)
+    }
+
+    @Test
+    fun `test void call as statement`() {
+        val code = """
+            class A is
+                this is
+                    this.foo()
+                end
+                method foo is end
+            end
+        """.trimIndent()
+
+        val tokens = lexer.lex(code)
+        val nodes = parser.parseNodes(tokens)
+        assertFalse(diag.hasErrors)
+
+        semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
+            performSemaStage(nodes, stage, typeManager)
+        }
+
+        assertFalse(diag.hasErrors)
     }
 }
