@@ -6,6 +6,8 @@ import koc.lex.asWindow
 import koc.lex.formatTokens
 import koc.parser.ast.Identifier
 import java.util.Locale
+import kotlin.math.acos
+import kotlin.math.exp
 
 class BuiltInClassRedefinition(val classDecl: ClassDecl) : DiagMessage(BuiltInClassRedefinitionKind) {
     override fun toString(): String = "Built-in class ${classDecl.identifier} redefinition found"
@@ -54,15 +56,8 @@ class RecursiveInheritance(val relatedClass: ClassDecl, val chain: List<Identifi
         get() = relatedClass.allCode
 }
 
-class UndefinedReference(val ref: RefExpr) : DiagMessage(UndefinedReferenceKind) {
+class UndefinedReference<T>(val ref: T) : DiagMessage(UndefinedReferenceKind) where T : Node, T : Named {
     override fun toString(): String = "Undefined reference '${ref.identifier}'"
-
-    override val code: List<String>
-        get() = ref.allCode
-}
-
-class ThisOutOfContext(val ref: RefExpr) : DiagMessage(ThisOutOfContextKind) {
-    override fun toString(): String = "Reference to '${ref.identifier}' is out of class context"
 
     override val code: List<String>
         get() = ref.allCode
@@ -84,8 +79,8 @@ class MethodOverloadFailed(val method: MethodDecl, val candidates: List<MethodDe
         get() = method.allCode
 }
 
-class NoSuitableMethodCandidate(val call: CallExpr) : DiagMessage(NoSuitableCandidateKind) {
-    override fun toString(): String = "No suitable method candidate '${call.ref.identifier}' on '${(call.ref.ref!! as MethodDecl).outerDecl.identifier}'"
+class NoSuitableMethodCandidate(val call: CallExpr, val classId: Identifier) : DiagMessage(NoSuitableCandidateKind) {
+    override fun toString(): String = "No suitable method candidate '${call.ref.identifier}' on '$classId.identifier'"
 
     override val code: List<String>
         get() = call.allCode
@@ -114,13 +109,6 @@ class NoSuitableConstructorCandidate(val call: CallExpr, val classDecl: ClassDec
         get() = call.allCode
 }
 
-class MemberAccessOnClass(val memberAccess: MemberAccessExpr) : DiagMessage(MemberAccessOnClassKind) {
-    override fun toString(): String = "Member access on class reference is prohibited"
-
-    override val code: List<String>
-        get() = memberAccess.allCode
-}
-
 class MethodReferenceWithoutCall(val ref: RefExpr) : DiagMessage(MethodReferenceWithoutCallKind) {
     override fun toString(): String = "Method reference ('${ref.identifier}') without call is prohibited"
 
@@ -135,9 +123,28 @@ class NonReturningCallInExpr(val expr: Expr) : DiagMessage(NonReturningCallInExp
         get() = expr.allCode
 }
 
-class UnableToInferVariableType(val decl: VarDecl) : DiagMessage(UnableToInferVariableTypeKind) {
-    override fun toString(): String = "Unable to infer variable '${decl.identifier} type'"
+class UnableToInferVariableType(val decl: VarDecl) : DiagMessage(UnableToInferExprTypeKind) {
+    override fun toString(): String = "Unable to infer variable '${decl.identifier}' type"
 
     override val code: List<String>
         get() = decl.allCode
 }
+
+class UnableToInferExprType(val expr: Expr) : DiagMessage(UnableToInferExprTypeKind) {
+    override fun toString(): String = "Unable to infer expression type"
+
+    override val code: List<String>
+        get() = expr.allCode
+}
+
+class ThisAsPartOfMemberAccess(val expr: Expr) : DiagMessage(ThisAsPartOfMemberAccessKind) {
+    override fun toString(): String = "'this' cannot be part of member in access"
+
+    override val code: List<String>
+        get() = expr.allCode
+}
+
+class TypeMismatch(val expected: ClassType, val actual: ClassType, override val code: List<String>) : DiagMessage(TypeMismatchKind) {
+    override fun toString(): String = "Type mismatch: expected '${expected.identifier}, but got ${actual.identifier}'"
+}
+

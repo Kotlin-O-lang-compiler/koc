@@ -15,6 +15,7 @@ import koc.ast.Node
 import koc.ast.RealLiteral
 import koc.ast.RefExpr
 import koc.ast.ReturnNode
+import koc.ast.TypeRef
 import koc.ast.VarDecl
 import koc.ast.WhileNode
 import koc.lex.Tokens
@@ -36,6 +37,8 @@ interface Parser {
     fun parseRealLiteral(tokens: Tokens): RealLiteral
     fun parseBooleanLiteral(tokens: Tokens): BooleanLiteral
     fun parseRefExpr(tokens: Tokens): RefExpr
+
+    fun parseTypeRef(tokens: Tokens): TypeRef
 
     fun parseWhileLoop(tokens: Tokens): WhileNode
     fun parseIfNode(tokens: Tokens): IfNode

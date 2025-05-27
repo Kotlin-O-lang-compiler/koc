@@ -1,27 +1,23 @@
 package koc.ast
 
+import koc.ast.visitor.Visitor
 import koc.lex.Token
 import koc.lex.Window
-import koc.parser.ast.Identifier
-import koc.ast.visitor.Visitor
 import koc.lex.asWindow
+import koc.parser.ast.Attribute
 import koc.parser.indent
 import koc.parser.next
 import koc.parser.scope
 import koc.parser.walk
 
-sealed class Decl() : Node(), Typed {
+sealed class Decl() : Node(), Typed, Named {
     override fun toString(indent: Int, builder: StringBuilder) {
         builder.append(indent.indent, this.javaClass.simpleName).scope {
             builder.appendLine(tokens.toString().prependIndent(indent.indent))
         }
     }
 
-    abstract val identifierToken: Token
-    val identifier: Identifier
-        get() = Identifier(identifierToken.value)
-
-    val identifierWindow: Window
+    override val identifierWindow: Window
         get() = identifierToken.asWindow(allTokens.tokens)
 
     abstract val declKindValue: String
@@ -32,7 +28,7 @@ data class ClassDecl(
     override val identifierToken: Token,
     val generics: GenericParams? = null,
     val extendsToken: Token? = null,
-    val superTypeRef: RefExpr? = null,
+    val superTypeRef: TypeRef? = null,
     val body: ClassBody,
 ) : Decl() {
     init {
@@ -45,7 +41,7 @@ data class ClassDecl(
         }
     }
 
-    val ref: RefExpr get() = RefExpr(identifierToken, generics)
+    val ref: TypeRef get() = TypeRef(identifierToken, generics)
 
     val hasExplicitSuperType: Boolean get() = superTypeRef != null
 
@@ -58,6 +54,9 @@ data class ClassDecl(
 
     override val isTypeKnown: Boolean
         get() = _type != null
+
+    override val isRootTypeKnown: Boolean
+        get() = isTypeKnown
 
     override val rootType: ClassType
         get() = type
@@ -129,22 +128,22 @@ data class FieldDecl(
     override val identifierToken: Token
         get() = varDecl.identifierToken
 
-    private var _type: FieldType? = null
-
-    override val type: FieldType
+    override val type: ClassType
         get() {
-            return _type!!
+            return varDecl.type
         }
 
     override val isTypeKnown: Boolean
-        get() = _type != null
+        get() = varDecl.isTypeKnown
+
+    override val isRootTypeKnown: Boolean
+        get() = varDecl.isRootTypeKnown
 
     override val rootType: ClassType
         get() = varDecl.rootType
 
     override fun specifyType(type: Type) {
-        require(type is FieldType)
-        _type = type
+        varDecl.specifyType(type)
     }
 
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, varDecl)
@@ -158,6 +157,19 @@ data class FieldDecl(
 
     override val declKindValue: String
         get() = "field"
+
+    override fun enable(attr: Attribute) {
+        super.enable(attr)
+        varDecl.enable(attr)
+    }
+
+    override fun disable(attr: Attribute) {
+        super.disable(attr)
+        varDecl.disable(attr)
+    }
+
+    override val isBroken: Boolean
+        get() = super.isBroken || varDecl.isBroken
 }
 
 data class ConstructorDecl(
@@ -178,6 +190,9 @@ data class ConstructorDecl(
 
     override val isTypeKnown: Boolean
         get() = _type != null
+
+    override val isRootTypeKnown: Boolean
+        get() = false
 
     override fun specifyType(type: Type) {
         require(type is ConstructorType)
@@ -203,7 +218,7 @@ data class MethodDecl(
     override val identifierToken: Token,
     val params: Params? = null,
     val colon: Token? = null,
-    val retTypeRef: RefExpr? = null,
+    val retTypeRef: TypeRef? = null,
     val body: MethodBody? = null
 ) : ClassMemberDecl() {
     private var _type: MethodType? = null
@@ -218,6 +233,9 @@ data class MethodDecl(
 
     override val isTypeKnown: Boolean
         get() = _type != null
+
+    override val isRootTypeKnown: Boolean
+        get() = false
 
     override fun specifyType(type: Type) {
         require(type is MethodType)
@@ -244,22 +262,24 @@ data class VarDecl(
     val colonToken: Token = Token.invalid,
     val initializer: Expr
 ) : Decl() {
-    private var _type: VarType? = null
+    private var _type: ClassType? = null
 
-    override val type: VarType
+    override val type: ClassType
         get() {
-            return _type!!
+            return initializer.type as ClassType
         }
 
     override val isTypeKnown: Boolean
-        get() = _type != null
+        get() = initializer.isTypeKnown
+
+    override val isRootTypeKnown: Boolean
+        get() = initializer.isRootTypeKnown
 
     override val rootType: ClassType
-        get() = type.classType
+        get() = initializer.rootType
 
     override fun specifyType(type: Type) {
-        require(type is VarType)
-        _type = type
+        initializer.specifyType(type)
     }
 
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, initializer)
@@ -284,7 +304,7 @@ data class VarDecl(
 data class Param(
     override val identifierToken: Token,
     val colonToken: Token,
-    val typeRef: RefExpr,
+    val typeRef: TypeRef,
     /**
      * comma before the param
      */
@@ -298,6 +318,9 @@ data class Param(
 
     override val isTypeKnown: Boolean
         get() = _type != null
+
+    override val isRootTypeKnown: Boolean
+        get() = isTypeKnown
 
     override fun specifyType(type: Type) {
         require(type is ParamType)
@@ -317,7 +340,7 @@ data class Param(
 }
 
 data class TypeParam(
-    val typeRef: RefExpr,
+    val typeRef: TypeRef,
     val commaToken: Token? = null
 ) : Decl() {
     override val identifierToken: Token
@@ -331,6 +354,12 @@ data class TypeParam(
 
     override val isTypeKnown: Boolean
         get() = _type != null
+
+    override val isRootTypeKnown: Boolean
+        get() = _type?.classType != null
+
+    override val rootType: ClassType
+        get() = _type!!.classType!!
 
     override fun specifyType(type: Type) {
         require(type is TypeParamType)

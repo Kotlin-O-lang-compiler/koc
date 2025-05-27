@@ -27,6 +27,7 @@ import koc.ast.RefExpr
 import koc.ast.ReturnNode
 import koc.ast.Statement
 import koc.ast.TypeParam
+import koc.ast.TypeRef
 import koc.ast.VarDecl
 import koc.ast.WhileNode
 
@@ -50,6 +51,7 @@ interface Visitor <T> {
         is Param -> previsit(node)
         is Params -> previsit(node)
         is TypeParam -> previsit(node)
+        is TypeRef -> previsit(node)
     }
     fun visit(node: Node): T = when (node) {
         is ClassDecl -> visit(node)
@@ -66,6 +68,7 @@ interface Visitor <T> {
         is Param -> visit(node)
         is Params -> visit(node)
         is TypeParam -> visit(node)
+        is TypeRef -> visit(node)
     }
     fun postvisit(node: Node, res: T) = when (node) {
         is ClassDecl -> postvisit(node, res)
@@ -82,6 +85,7 @@ interface Visitor <T> {
         is Param -> postvisit(node, res)
         is Params -> postvisit(node, res)
         is TypeParam -> postvisit(node, res)
+        is TypeRef -> postvisit(node, res)
     }
 
     fun previsit(classDecl: ClassDecl) {}
@@ -247,6 +251,10 @@ interface Visitor <T> {
     fun previsit(node: TypeParam) {}
     fun visit(node: TypeParam): T
     fun postvisit(node: TypeParam, res: T) {}
+
+    fun previsit(ref: TypeRef) {}
+    fun visit(ref: TypeRef): T
+    fun postvisit(ref: TypeRef, res: T) {}
 
     val shouldVisitChildren: Boolean
         get() = insight != Insight.STOP && insight != Insight.SKIP

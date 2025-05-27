@@ -1,26 +1,12 @@
-//class A is
-//    method foo
-//    method foo is end
-//    method x: A is
-//        return this
-//    end
-//    method xx(arg: Integer): A is
-//        return this
-//    end
-//    method xxx is
-//        var tmp: xx(1).x().foo()
-//    end
-//end
-
-class Main is
+class A is
     this is
-        var a: A()
-
-        a.foo()
+        B().int(10)
     end
 end
 
-class A is
+class B is
+    method int(): Integer is
+        return 100
+    end
     this is end
-    method foo is end
 end

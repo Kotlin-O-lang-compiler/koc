@@ -8,6 +8,7 @@ import koc.parser.Parser
 import koc.parser.fromOptions
 import koc.sema.TypeManager
 import koc.sema.impl.ReferenceResolver
+import koc.sema.impl.TypeChecker
 import koc.sema.performSemaStage
 import koc.sema.semaVisitors
 import org.junit.jupiter.api.BeforeEach
@@ -61,8 +62,8 @@ class TestTypeCheck {
         val call = initializer.member as CallExpr
         assertSame(msg.expr, initializer)
         assertSame(typeManager.unitType, call.type)
-        assertTrue(call.ref.type.isMethod)
-        assertSame(foo, (call.ref.type as MethodRefType).method)
+        assertTrue(call.ref.isMethod)
+        assertSame(foo, call.ref.ref)
     }
 
     @Test
@@ -98,8 +99,8 @@ class TestTypeCheck {
         val msg = diag.diagnostics.first() as NonReturningCallInExpr
         assertSame(msg.expr, foo1)
         assertSame(typeManager.unitType, foo1.type)
-        assertTrue(foo1.ref.type.isMethod)
-        assertSame(foo, (foo1.ref.type as MethodRefType).method)
+        assertTrue(foo1.ref.isMethod)
+        assertSame(foo, foo1.ref.ref)
     }
 
     @Test
@@ -122,5 +123,33 @@ class TestTypeCheck {
         }
 
         assertFalse(diag.hasErrors)
+    }
+
+    @Test
+    fun `test void return instead of value`() {
+        val code = """
+            class A is
+                method foo(a: Integer): Integer is 
+                    if a.Greater(10) then
+                        return a
+                    end
+                    return
+                end
+            end
+        """.trimIndent()
+
+        val tokens = lexer.lex(code)
+        val nodes = parser.parseNodes(tokens)
+        assertFalse(diag.hasErrors)
+
+        semaVisitors(typeManager, diag).dropLastWhile { it !is TypeChecker }.forEach { stage ->
+            performSemaStage(nodes, stage, typeManager)
+        }
+
+        assertTrue(diag.hasErrors)
+        assertTrue(diag.has<TypeMismatchKind>())
+        val msg = diag.diagnostics.last() as TypeMismatch
+        assertSame(typeManager.intType, msg.expected)
+        assertSame(typeManager.unitType, msg.actual)
     }
 }

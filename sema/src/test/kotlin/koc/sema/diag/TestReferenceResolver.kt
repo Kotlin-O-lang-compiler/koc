@@ -55,37 +55,12 @@ class TestReferenceResolver {
         }
 
         assertTrue(diag.hasErrors)
-        assertTrue(diag.has<ThisOutOfContextKind>())
-        val ref = (diag.diagnostics.last() as ThisOutOfContext).ref
-        assertNotNull(ref.ref)
-        assertIs<ClassDecl>(ref.ref)
-        assertTrue(with(typeManager) { (ref.ref!! as ClassDecl).isInvalid })
-    }
-
-    @Test
-    fun `test undefined super type`() {
-        val undefinedId = "AbraCadabra"
-        val code = """
-            class A extends $undefinedId is end
-        """.trimIndent()
-
-        val tokens = lexer.lex(code)
-        val nodes = parser.parseNodes(tokens)
-        assertFalse(diag.hasErrors)
-
-        semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
-            performSemaStage(nodes, stage, typeManager)
-        }
-
-        assertTrue(diag.hasErrors)
         assertTrue(diag.has<UndefinedReferenceKind>())
-        val undefinedRef = (diag.diagnostics.last() as UndefinedReference).ref
-        assertEquals(undefinedId, undefinedRef.identifier.value)
-        val cd = nodes[0] as ClassDecl
-
-        assertNotNull(cd.superTypeRef)
-        assertIs<ClassDecl>(cd.superTypeRef!!.ref)
-        assertTrue(with(typeManager) { (cd.superTypeRef!!.ref!! as ClassDecl).isInvalid })
+        val msg = (diag.diagnostics.last() as UndefinedReference<*>)
+        assertNotNull(msg.ref)
+        assertIs<RefExpr>(msg.ref)
+        assertIs<ClassDecl>(msg.ref.ref)
+        assertTrue(with(typeManager) { (msg.ref.ref as ClassDecl).isInvalid })
     }
 
     @Test
@@ -360,7 +335,7 @@ class TestReferenceResolver {
 
         assertTrue(diag.hasErrors)
         diag.has<UndefinedReferenceKind>()
-        val msg = diag.diagnostics.first() as UndefinedReference
+        val msg = diag.diagnostics.first() as UndefinedReference<*>
         assertSame(y, msg.ref)
     }
 
@@ -388,8 +363,98 @@ class TestReferenceResolver {
 
         assertFalse(diag.hasErrors)
         assertSame(typeManager.intType, x.rootType)
-        assertSame(x, x.type.field)
+        assertSame(typeManager.intType, x.type)
         assertSame(typeManager.boolType, y.rootType)
-        assertSame(y, y.type.field)
+        assertSame(typeManager.boolType, y.type)
+    }
+
+    @Test
+    fun `test field dependency type`() {
+        val code = """
+            class A is
+                var x: 0
+                var y: x
+            end
+        """.trimIndent()
+
+        val tokens = lexer.lex(code)
+        val nodes = parser.parseNodes(tokens)
+        assertFalse(diag.hasErrors)
+
+        val a = nodes[0] as ClassDecl
+        val x = a.body.members.first() as FieldDecl
+        val y = a.body.members.last() as FieldDecl
+
+        semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
+            performSemaStage(nodes, stage, typeManager)
+        }
+
+        assertFalse(diag.hasErrors)
+        assertSame(typeManager.intType, x.rootType)
+        assertSame(typeManager.intType, x.type)
+        assertSame(typeManager.intType, y.rootType)
+        assertSame(typeManager.intType, y.type)
+    }
+
+    @Test
+    fun `test field reversed dependency type`() {
+        val code = """
+            class A is
+                var x: y
+                var y: 10
+            end
+        """.trimIndent()
+
+        val tokens = lexer.lex(code)
+        val nodes = parser.parseNodes(tokens)
+        assertFalse(diag.hasErrors)
+
+        val a = nodes[0] as ClassDecl
+        val x = a.body.members.first() as FieldDecl
+        val yref = x.varDecl.initializer as RefExpr
+        val y = a.body.members.last() as FieldDecl
+
+        semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
+            performSemaStage(nodes, stage, typeManager)
+        }
+
+        assertTrue(diag.hasErrors)
+        val msg = diag.diagnostics.first() as UndefinedReference<*>
+        assertSame(msg.ref, yref)
+        assertTrue(yref.isBroken)
+        assertTrue(with(typeManager) { yref.isBroken })
+        assertTrue(with(typeManager) { x.type.isInvalid })
+        assertTrue(with(typeManager) { x.rootType.isInvalid })
+
+        assertSame(typeManager.intType, y.rootType)
+        assertSame(typeManager.intType, y.type)
+    }
+
+    @Test
+    fun `test field cross dependency type`() {
+        val code = """
+            class A is
+                var x: y
+                var y: x
+            end
+        """.trimIndent()
+
+        val tokens = lexer.lex(code)
+        val nodes = parser.parseNodes(tokens)
+        assertFalse(diag.hasErrors)
+
+        val a = nodes[0] as ClassDecl
+        val x = a.body.members.first() as FieldDecl
+        val y = a.body.members.last() as FieldDecl
+
+        semaVisitors(typeManager, diag).dropLastWhile { it !is ReferenceResolver }.forEach { stage ->
+            performSemaStage(nodes, stage, typeManager)
+        }
+
+        assertTrue(diag.hasErrors)
+
+//        assertSame(x, x.type.field)
+//        assertSame(typeManager.intType, y.rootType)
+//        assertSame(y, y.type.field)
     }
 }

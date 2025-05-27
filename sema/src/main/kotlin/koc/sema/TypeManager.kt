@@ -1,6 +1,5 @@
 package koc.sema
 
-import koc.ast.Body
 import koc.ast.ClassBody
 import koc.ast.ClassDecl
 import koc.ast.ClassType
@@ -241,8 +240,8 @@ class $INTEGER_ID extends $ANY_VALUE_ID is
     this(p: $INTEGER_ID) is end
     this(p: $REAL_ID) is end
     
-    var Min : $INTEGER_ID //  TODO: Replace with integer literal
-    var Max : $INTEGER_ID
+    var Min : ${Token.INT_MIN}
+    var Max : ${Token.INT_MAX}
     
     method toReal : $REAL_ID
     method toBoolean : $BOOLEAN_ID
@@ -277,9 +276,9 @@ class $REAL_ID extends $ANY_VALUE_ID is
     this(p: $REAL_ID) is end
     this(p: $INTEGER_ID) is end
     
-    var Min : $REAL_ID
-    var Max : $REAL_ID
-    var Epsilon : $REAL_ID
+    var Min : 0.0
+    var Max : 179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0000000000
+    var Epsilon : ${1e-3}
     
     method toInteger : $INTEGER_ID
     

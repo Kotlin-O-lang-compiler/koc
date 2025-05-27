@@ -1,10 +1,8 @@
-class Main is
-    this is
-        var a: A()
-        a.foo()
-    end
-end
-
 class A is
-    method foo is end
+    method foo(x: A) is
+        x.bar()
+        var x: true
+        return
+    end
+    method bar() is end
 end

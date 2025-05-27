@@ -19,7 +19,7 @@ class OverloadManager(val diag: Diagnostics) {
     private val classById = hashMapOf<Identifier, ClassDecl>()
 
     operator fun plusAssign(method: MethodDecl) {
-        if (method.isForwardDecl) return // proceed only actual declarations
+        if (method.isForwardDecl && !method.outerDecl.isBuiltIn) return // proceed only actual declarations
         overload(method.outerDecl, method)
     }
 

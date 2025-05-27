@@ -23,6 +23,7 @@ import koc.ast.RealLiteral
 import koc.ast.RefExpr
 import koc.ast.ReturnNode
 import koc.ast.TypeParam
+import koc.ast.TypeRef
 import koc.ast.VarDecl
 import koc.ast.WhileNode
 
@@ -54,4 +55,5 @@ abstract class AbstractVoidVisitor(
     override fun visit(node: Param) {}
     override fun visit(node: Params) {}
     override fun visit(node: TypeParam) {}
+    override fun visit(ref: TypeRef) {}
 }

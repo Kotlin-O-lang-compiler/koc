@@ -11,8 +11,10 @@ import koc.parser.walk
 import koc.core.Position
 import koc.lex.Tokens
 import koc.lex.Window
+import koc.lex.asWindow
 import koc.parser.ast.Attribute
 import koc.parser.ast.Attributed
+import koc.parser.ast.Identifier
 import koc.parser.window
 import java.util.EnumSet
 
@@ -26,7 +28,7 @@ sealed class Node() : Attributed {
     private var _scope: ParseScope? = null
     val scope: ParseScope get() = _scope!!
 
-    val isBroken: Boolean get() = Attribute.BROKEN in attrs || tokens.isEmpty() || hasInvalidToken
+    open val isBroken: Boolean get() = Attribute.BROKEN in attrs || tokens.isEmpty() || hasInvalidToken
     val afterSema: Boolean get() = Attribute.AFTER_TYPE_CHECK in attrs
     val isBuiltIn: Boolean get() = Attribute.BUILTIN in attrs
     val inTypeCheck: Boolean get() = Attribute.IN_TYPE_CHECK in attrs
@@ -208,6 +210,9 @@ data class Argument(
     override val isTypeKnown: Boolean
         get() = expr.isTypeKnown
 
+    override val isRootTypeKnown: Boolean
+        get() = expr.isRootTypeKnown
+
     override fun specifyType(type: Type) {
         expr.specifyType(type)
     }
@@ -264,4 +269,51 @@ class Body(val isToken: Token? = null, val endToken: Token) : Node() {
 
     override val window: Window
         get() = Window(isToken ?: nodes.tokens.firstOrNull() ?: endToken, endToken, allTokens.tokens)
+}
+
+
+data class TypeRef(override val identifierToken: Token, val generics: GenericParams? = null) : Node(), Typed, Named {
+    override val identifierWindow: Window
+        get() = identifierToken.asWindow(allTokens.tokens)
+
+    private var _type: ClassType? = null
+
+    /**
+     * Type of reference destination
+     */
+    override val type: ClassType
+        get() {
+            return _type!!
+        }
+
+    override val isTypeKnown: Boolean
+        get() = _type != null
+
+    override val rootType: ClassType
+        get() = type
+
+    override val isRootTypeKnown: Boolean
+        get() = isTypeKnown
+
+    private var _ref: Decl? = null
+    val ref: Decl?
+        get() = _ref
+
+    val isTypeParam: Boolean
+        get() = ref is TypeParam
+
+    fun specifyRef(decl: Decl) {
+        require(decl is ClassDecl || decl is TypeParam)
+        _ref = decl
+    }
+
+    override val window: Window
+        get() = Window(identifierToken, generics?.tokens?.last() ?: identifierToken, allTokens.tokens)
+
+    override fun specifyType(type: Type) {
+        require(type is ClassType)
+        _type = type
+    }
+
+    override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken, generics)
 }

@@ -3,35 +3,28 @@ package koc.sema.impl
 import koc.ast.BooleanLiteral
 import koc.ast.CallExpr
 import koc.ast.ClassDecl
-import koc.ast.ClassRefType
 import koc.ast.ConstructorDecl
-import koc.ast.ConstructorRefType
-import koc.ast.EntityRefType
 import koc.ast.FieldDecl
-import koc.ast.FieldType
 import koc.ast.IntegerLiteral
 import koc.ast.MemberAccessExpr
 import koc.ast.MethodDecl
-import koc.ast.MethodRefType
 import koc.ast.RealLiteral
 import koc.ast.RefExpr
 import koc.ast.TypeParam
 import koc.ast.VarDecl
-import koc.ast.VarType
 import koc.ast.visitor.AbstractVoidInsightVisitor
 import koc.ast.visitor.Insight
 import koc.core.Diagnostics
-import koc.lex.asWindow
 import koc.lex.diag
 import koc.parser.ast.Attribute
 import koc.parser.impl.ParseScope
 import koc.sema.TypeManager
-import koc.sema.diag.MemberAccessOnClass
 import koc.sema.diag.MethodReferenceWithoutCall
 import koc.sema.diag.NoSuitableConstructorCandidate
 import koc.sema.diag.NoSuitableMethodCandidate
 import koc.sema.diag.NonReturningCallInExpr
-import koc.sema.diag.ThisOutOfContext
+import koc.sema.diag.UnableToInferExprType
+import koc.sema.diag.UnableToInferVariableType
 import koc.sema.diag.UndefinedReference
 
 class ReferenceResolver(
@@ -58,7 +51,6 @@ class ReferenceResolver(
     }
 
     override fun visit(field: FieldDecl): Insight {
-        field.specifyType(FieldType(field, field.outerDecl))
         field.varDecl.initializer.visit(this)
         postvisit(field.varDecl, Insight.SKIP)
         return Insight.SKIP
@@ -72,7 +64,7 @@ class ReferenceResolver(
     override fun postvisit(vardecl: VarDecl, res: Insight) {
         if (vardecl.initializer.isBroken) {
             vardecl.enable(Attribute.BROKEN)
-            vardecl.specifyType(VarType(vardecl, typeManager.invalidType))
+            vardecl.specifyType(typeManager.invalidType)
             return
         }
         if (vardecl.initializer.isTypeKnown) {
@@ -80,8 +72,8 @@ class ReferenceResolver(
                 diag.diag(NonReturningCallInExpr(vardecl.initializer), vardecl.initializer.window)
                 vardecl.initializer.enable(Attribute.BROKEN)
                 vardecl.enable(Attribute.BROKEN)
-                vardecl.specifyType(VarType(vardecl, typeManager.invalidType))
-            } else vardecl.specifyType(VarType(vardecl, vardecl.initializer.rootType))
+                vardecl.specifyType(typeManager.invalidType)
+            } else vardecl.specifyType(vardecl.initializer.rootType)
         }
     }
 
@@ -108,7 +100,7 @@ class ReferenceResolver(
 
             val method = overloadManager.getSuitable(randomMethod.outerDecl.identifier, randomMethod.identifier, expr.argumentTypes)
             if (method == null) {
-                diag.diag(NoSuitableMethodCandidate(expr), expr.window)
+                diag.diag(NoSuitableMethodCandidate(expr, randomMethod.outerDecl.identifier), expr.window)
                 expr.enable(Attribute.BROKEN)
                 expr.ref.enable(Attribute.BROKEN)
                 expr.ref.specifyRef(typeManager.invalidDecl)
@@ -117,12 +109,8 @@ class ReferenceResolver(
                 return Insight.SKIP
             } else {
                 expr.ref.specifyRef(method)
-                expr.ref.specifyType(MethodRefType(method))
                 if (method.type.isVoid) {
-//                    diag.diag(NonReturningCallInExpr(expr), expr.window)
-//                    expr.enable(Attribute.BROKEN)
                     expr.specifyType(typeManager.unitType)
-//                    expr.specifyType(typeManager.invalidType)
                 } else {
                     expr.specifyType(method.type.retType!!)
                 }
@@ -143,7 +131,6 @@ class ReferenceResolver(
                 return Insight.SKIP
             } else {
                 expr.ref.specifyRef(ctor)
-                expr.ref.specifyType(ConstructorRefType(ctor))
                 expr.specifyType(ctor.outerDecl.type)
             }
         } else {
@@ -168,48 +155,55 @@ class ReferenceResolver(
     private fun visit(expr: RefExpr, scope: ParseScope): Insight {
         if (expr.ref != null) return Insight.SKIP
 
-        if (expr.isThis) {
-            if (scope != expr.scope) {
-                error("'this' is in bad context")
-            } else if (context != null) {
-                expr.specifyRef(context!!)
-                expr.specifyType(EntityRefType(context!!))
-            } else {
-                diag.diag(ThisOutOfContext(expr), expr.window)
-                expr.specifyRef(typeManager.invalidDecl)
-                expr.specifyType(typeManager.invalidType)
-                expr.enable(Attribute.BROKEN)
-            }
-        } else {
+        if (expr.isThis && scope != expr.scope) {
+            expr.setUndefined()
+            return Insight.SKIP
+        } else if (!expr.isThis) {
             if (scopeManager.isDefined(expr.identifier, scope)) {
                 val decl = scopeManager.getDecl(expr.identifier, scope)
+
+                if (decl is ClassDecl || decl is TypeParam) {
+                    expr.setUndefined()
+                    return Insight.SKIP
+                }
+
                 expr.specifyRef(decl)
                 val refType = if (decl.isBroken) {
                     expr.enable(Attribute.BROKEN)
                     typeManager.invalidType
-                } else if (decl is ClassDecl) ClassRefType(decl) else EntityRefType(decl)
+                } else decl.rootType
                 expr.specifyType(refType)
             } else if (scopeManager.isMethodDefined(expr.identifier, scope)) {
                 diag.diag(MethodReferenceWithoutCall(expr), expr.window)
                 expr.enable(Attribute.BROKEN)
             } else {
                 expr.specifyRef(typeManager.invalidDecl)
-                expr.specifyType(typeManager.invalidType)
-                diag.diag(UndefinedReference(expr), expr.window)
-                expr.enable(Attribute.BROKEN)
+                expr.setUndefined()
             }
         }
 
         if (!expr.isBroken && expr.ref is FieldDecl && !expr.ref!!.isTypeKnown) {
             val field = expr.ref as FieldDecl
             field.varDecl.initializer.visit(this)
-            field.varDecl.specifyType(VarType(field.varDecl, field.varDecl.initializer.rootType))
-            field.specifyType(FieldType(field, field.outerDecl))
+            println("field ${field.identifier} initializer type known: ${field.varDecl.initializer.isTypeKnown}")
+            if (field.varDecl.isTypeKnown)
+                field.varDecl.specifyType(field.varDecl.initializer.rootType)
+            else {
+                diag.diag(UnableToInferVariableType(field.varDecl), field.window)
+                diag.diag(UnableToInferExprType(expr), expr.window)
+                field.varDecl.specifyType(typeManager.invalidType)
+                expr.specifyType(typeManager.invalidType)
+                field.varDecl.enable(Attribute.BROKEN)
+                field.enable(Attribute.BROKEN)
+                expr.enable(Attribute.BROKEN)
+
+                return Insight.CONTINUE
+            }
         } else if (!expr.isBroken && expr.ref is VarDecl && !expr.ref!!.isTypeKnown) {
             val vardecl = expr.ref as VarDecl
 
             vardecl.initializer.visit(this)
-            vardecl.specifyType(VarType(vardecl, vardecl.initializer.rootType))
+            vardecl.specifyType(vardecl.initializer.rootType)
         }
 
         return Insight.CONTINUE
@@ -221,11 +215,6 @@ class ReferenceResolver(
                 if (access.left.isBroken) {
                     access.enable(Attribute.BROKEN)
                     access.member.enable(Attribute.BROKEN)
-                    return Insight.SKIP
-                }
-                if ((access.left as RefExpr).type.isClass) {
-                    diag.diag(MemberAccessOnClass(access), access.window)
-                    access.enable(Attribute.BROKEN)
                     return Insight.SKIP
                 }
             }
@@ -264,5 +253,11 @@ class ReferenceResolver(
 
     override fun postvisit(classDecl: ClassDecl, res: Insight) {
         context = null
+    }
+
+    private fun RefExpr.setUndefined() {
+        diag.diag(UndefinedReference(this), window)
+        this.enable(Attribute.BROKEN)
+        this.specifyType(typeManager.invalidType)
     }
 }

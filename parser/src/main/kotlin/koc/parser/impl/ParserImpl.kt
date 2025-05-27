@@ -26,6 +26,7 @@ import koc.ast.RefExpr
 import koc.ast.ReturnNode
 import koc.ast.Statement
 import koc.ast.TypeParam
+import koc.ast.TypeRef
 import koc.ast.VarDecl
 import koc.ast.WhileNode
 import koc.core.Diagnostics
@@ -116,6 +117,11 @@ class ParserImpl(
         return parseRefExpr()
     }
 
+    override fun parseTypeRef(tokens: Tokens): TypeRef {
+        core.feed(tokens)
+        return parseTypeRef()
+    }
+
     override fun parseWhileLoop(tokens: Tokens): WhileNode {
         core.feed(tokens)
         return parseWhileLoop()
@@ -141,8 +147,8 @@ class ParserImpl(
         val ref = parseRefExpr(thisAllowed = false) // parse identifier and generic params
 
         val extendsToken = if (next?.kind == TokenKind.EXTENDS) expect(TokenKind.EXTENDS) else null
-        val (superTypeRef, body) = withScope<Pair<RefExpr?, ClassBody>>(ParseScopeKind.CLASS) {
-            extendsToken?.let { parseRefExpr(thisAllowed = false) } to parseClassBody()
+        val (superTypeRef, body) = withScope<Pair<TypeRef?, ClassBody>>(ParseScopeKind.CLASS) {
+            extendsToken?.let { parseTypeRef() } to parseClassBody()
         }
 
         ClassDecl(classToken, ref.identifierToken, ref.generics, extendsToken, superTypeRef, body)
@@ -193,7 +199,7 @@ class ParserImpl(
         val id = expect(TokenKind.IDENTIFIER)
         var params: Params? = null
         var colon: Token? = null
-        var retType: RefExpr? = null
+        var retType: TypeRef? = null
         var body: MethodBody? = null
 
         run {
@@ -222,7 +228,7 @@ class ParserImpl(
                 if (afterParams.kind in classMemberStartToken + TokenKind.END) return@withScope
 
                 colon = if (afterParams.kind == TokenKind.COLON) expect(TokenKind.COLON) else null
-                retType = colon?.let { parseRefExpr() }
+                retType = colon?.let { parseTypeRef() }
 
                 val afterRetType = when {
                     afterParams.kind in listOf(TokenKind.IS, TokenKind.WIDE_ARROW) -> afterParams
@@ -286,7 +292,7 @@ class ParserImpl(
         val comma = if (first.kind == TokenKind.COMMA) first else null
         val id = if (first.kind == TokenKind.IDENTIFIER) first else core.expect(TokenKind.IDENTIFIER)
         val colon = core.expect(TokenKind.COLON)
-        val type = parseRefExpr()
+        val type = parseTypeRef()
         return@parse Param(id, colon, type, comma)
     }
 
@@ -409,11 +415,11 @@ class ParserImpl(
 
         val lsquare = core.expect(TokenKind.LSQUARE)
         val params = arrayListOf<TypeParam>()
-        params += core.parse<TypeParam> { TypeParam(parseRefExpr()) }
+        params += core.parse<TypeParam> { TypeParam(parseTypeRef()) }
 
         while (core.next?.kind == TokenKind.COMMA) {
             val comma = core.expect(TokenKind.COMMA)
-            val typeRef = parseRefExpr()
+            val typeRef = parseTypeRef()
             val typeParam = core.parse<TypeParam> { TypeParam(typeRef, comma) }
             params += typeParam
         }
@@ -427,6 +433,28 @@ class ParserImpl(
                 diag.diag(UnexpectedToken(lsquare, listOf(), allTokens.code), lsquare)
             }
         }
+    }
+
+    private fun parseTypeRef(): TypeRef = core.parse<TypeRef> {
+        val identifier = core.expect(TokenKind.IDENTIFIER)
+
+        if (core.next?.kind != TokenKind.LSQUARE) return@parse TypeRef(identifier)
+
+        val lsquare = core.expect(TokenKind.LSQUARE)
+        val params = arrayListOf<TypeParam>()
+        params += core.parse<TypeParam> { TypeParam(parseTypeRef()) }
+
+        while (core.next?.kind == TokenKind.COMMA) {
+            val comma = core.expect(TokenKind.COMMA)
+            val typeRef = parseTypeRef()
+            val typeParam = core.parse<TypeParam> { TypeParam(typeRef, comma) }
+            params += typeParam
+        }
+
+        val rsquare = core.expect(TokenKind.RSQUARE)
+
+        val generics = core.parse<GenericParams> { GenericParams(lsquare, rsquare).also { it += params } }
+        return@parse TypeRef(identifier, generics)
     }
 
     private fun parseAssignment(): Assignment = core.parse<Assignment> {

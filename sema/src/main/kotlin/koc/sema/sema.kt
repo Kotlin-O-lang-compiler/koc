@@ -10,6 +10,8 @@ import koc.sema.impl.OverloadValidatorVisitor
 import koc.sema.impl.ReferenceResolver
 import koc.sema.impl.ScopeManager
 import koc.sema.impl.SuperTypeResolver
+import koc.sema.impl.TypeChecker
+import koc.sema.impl.VariableAccessOrderChecker
 
 fun performSema(nodes: List<Node>, typeManager: TypeManager, diag: Diagnostics) {
     semaStages(typeManager, diag).forEach { stage -> stage(nodes) }
@@ -41,8 +43,10 @@ fun semaVisitors(typeManager: TypeManager, diag: Diagnostics = Diagnostics()): L
     return listOf(
         ClassCollector(typeManager, diag, scopeManager),
         SuperTypeResolver(typeManager, diag),
-        ClassMemberReferenceCollector(/*typeManager, diag, */scopeManager),
+        ClassMemberReferenceCollector(scopeManager),
         OverloadValidatorVisitor(typeManager, diag, scopeManager, overloadManager),
+        VariableAccessOrderChecker(typeManager, diag, scopeManager),
         ReferenceResolver(typeManager, diag, scopeManager, overloadManager),
+        TypeChecker(typeManager, diag, scopeManager, overloadManager)
     )
 }

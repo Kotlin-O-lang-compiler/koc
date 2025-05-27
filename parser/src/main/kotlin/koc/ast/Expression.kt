@@ -4,12 +4,15 @@ import koc.ast.visitor.Visitor
 import koc.lex.Token
 import koc.lex.TokenKind
 import koc.lex.Window
+import koc.lex.asWindow
 import koc.parser.ast.Attribute
-import koc.parser.ast.Identifier
 import koc.parser.walk
 
 
-sealed class Expr : Node(), Typed
+sealed class Expr : Node(), Typed {
+    val isThis: Boolean
+        get() = (this as? RefExpr)?.identifierToken?.kind == TokenKind.THIS
+}
 
 class InvalidExpr : Expr() {
     init {
@@ -29,6 +32,9 @@ class InvalidExpr : Expr() {
     override val isTypeKnown: Boolean
         get() = _type != null
 
+    override val isRootTypeKnown: Boolean
+        get() = isTypeKnown
+
     override val rootType: ClassType
         get() = type
 
@@ -40,27 +46,39 @@ class InvalidExpr : Expr() {
     override fun <T> visit(visitor: Visitor<T>): T? = walk(visitor, visitor.order, visitor.onBroken)
 }
 
-data class RefExpr(val identifierToken: Token, val generics: GenericParams? = null) : Expr(), Typed {
-    val identifier: Identifier get() = Identifier(identifierToken.value)
+data class RefExpr(override val identifierToken: Token, val generics: GenericParams? = null) : Expr(), Typed, Named {
+    override val identifierWindow: Window
+        get() = identifierToken.asWindow(allTokens.tokens)
 
-    private var _type: Type? = null
+    private var _type: ClassType? = null
 
     /**
      * Type of reference destination
      */
-    override val type: RefType
+    override val type: ClassType
         get() {
-            return (_type!! as? RefType) ?: throw IllegalStateException("Type is invalid: ${(_type!! as ClassType).identifier}")
+            return _type!!
         }
 
     override val isTypeKnown: Boolean
         get() = _type != null
 
     override val rootType: ClassType
-        get() = type.rootType
+        get() = type
 
-    val isThis: Boolean
-        get() = identifierToken.kind == TokenKind.THIS
+    override val isRootTypeKnown: Boolean
+        get() = isTypeKnown
+
+    val isMethod: Boolean
+        get() = ref is MethodDecl
+    val isConstructor: Boolean
+        get() = ref is ConstructorDecl || ref is ClassDecl
+    val isField: Boolean
+        get() = ref is FieldDecl
+    val isVar: Boolean
+        get() = ref is VarDecl
+    val isParam: Boolean
+        get() = ref is Param
 
     private var _ref: Decl? = null
     val ref: Decl?
@@ -78,7 +96,7 @@ data class RefExpr(val identifierToken: Token, val generics: GenericParams? = nu
         get() = Window(identifierToken, generics?.tokens?.last() ?: identifierToken, allTokens.tokens)
 
     override fun specifyType(type: Type) {
-        require(type is RefType || type is ClassType)
+        require(type is ClassType)
         _type = type
     }
 
@@ -104,6 +122,9 @@ class IntegerLiteral(val token: Token) : Expr() {
 
     override val isTypeKnown: Boolean
         get() = _type != null
+
+    override val isRootTypeKnown: Boolean
+        get() = isTypeKnown
 
     override val rootType: ClassType
         get() = type
@@ -135,6 +156,9 @@ class RealLiteral(val token: Token) : Expr() {
 
     override val isTypeKnown: Boolean
         get() = _type != null
+
+    override val isRootTypeKnown: Boolean
+        get() = isTypeKnown
 
     override val rootType: ClassType
         get() = type
@@ -169,6 +193,9 @@ class BooleanLiteral(val token: Token) : Expr() {
 
     override val rootType: ClassType
         get() = type
+
+    override val isRootTypeKnown: Boolean
+        get() = isTypeKnown
 
     override fun specifyType(type: Type) {
         require(type is ClassType)
@@ -218,6 +245,9 @@ class CallExpr(val ref: RefExpr, val lparen: Token, val rparen: Token) : Expr() 
     override val isTypeKnown: Boolean
         get() = _type != null
 
+    override val isRootTypeKnown: Boolean
+        get() = isTypeKnown
+
     override val rootType: ClassType
         get() = type
 
@@ -254,6 +284,9 @@ class MemberAccessExpr(
 
     override val isTypeKnown: Boolean
         get() = _type != null
+
+    override val isRootTypeKnown: Boolean
+        get() = isTypeKnown
 
     override val rootType: ClassType
         get() = type
