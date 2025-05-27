@@ -1,18 +1,79 @@
 package koc.parser.diag
 
+import koc.core.Diagnostics
+import koc.core.Position
 import koc.lex.Token
 import koc.lex.TokenKind
-import koc.parser.UnexpectedTokenException
-import koc.utils.Position
+import koc.lex.formatTokens
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
+import java.nio.charset.StandardCharsets
 import kotlin.test.Test
+import kotlin.test.assertContains
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class TestDiag {
+    private fun <T> withStreams(
+        action: (out: PrintStream, err: PrintStream) -> T,
+        check: (out: String, err: String, T) -> Unit
+    ) {
+        val outBytes = ByteArrayOutputStream()
+        val charset = StandardCharsets.UTF_8
+        val outStream = PrintStream(outBytes, true, charset)
+        val errBytes = ByteArrayOutputStream()
+        val errStream = PrintStream(errBytes, true, charset)
+
+        outStream.use { out ->
+            errStream.use { err ->
+                val res = action(out, err)
+                check(String(outBytes.toByteArray(), charset), String(errBytes.toByteArray(), charset), res)
+            }
+        }
+    }
+
+    fun assertHasLines(str: String, vararg lines: String, withOrder: Boolean = true) {
+        if (lines.isEmpty()) return
+        val strLines = str.lines()
+        var idx = strLines.indexOf(lines.first())
+        assertTrue("Line \"${lines.first()}\" is not met in the string \"$str\"") { idx >= 0 }
+        for (line in lines) {
+            if (withOrder) {
+                assertEquals(line, strLines[idx], "Expected \"${line}\" at index $idx, but was \"${strLines[idx]}\"  ")
+                idx++
+            } else {
+                assertContains(strLines, line)
+            }
+        }
+    }
+
     @Test
     fun testDiagTokenUnderlineToken() {
         val token = Token(TokenKind.CLASS, Position(1u, 1u, "file"))
         val expected = Token(TokenKind.LPAREN, Position.fake)
-        val msg = UnexpectedTokenException(token, expected.kind, listOf(token)).message
-        println(msg)
+
+        withStreams(
+            { out, err ->
+                val diag = Diagnostics(outstream = out, errstream = err)
+                diag.diag(
+                    UnexpectedToken(
+                        token,
+                        expected.kind,
+                        formatTokens(listOf(token), start = 0, end = 0, showLines = false, onlyWindow = true).lines()
+                    ), token.start, token.end
+                )
+                diag
+            },
+            check = { out, err, diag ->
+                assertHasLines(
+                    err,
+                    "error: Unexpected token 'class', probably you mean '('",
+                    " -> file:1:1",
+                    "1 | class",
+                    "    ~~~~~"
+                )
+            }
+        )
     }
 
     @Test
@@ -25,8 +86,35 @@ class TestDiag {
         )
 
         val expected = Token(TokenKind.IDENTIFIER, Position.fake)
-        val msg = UnexpectedTokenException(bad, expected.kind, tokens).message
-        println(msg)
+
+        withStreams(
+            { out, err ->
+                val diag = Diagnostics(outstream = out, errstream = err)
+                diag.diag(
+                    UnexpectedToken(
+                        bad,
+                        expected.kind,
+                        formatTokens(
+                            tokens,
+                            start = 0,
+                            end = tokens.lastIndex,
+                            showLines = false,
+                            onlyWindow = true
+                        ).lines()
+                    ), bad.start, bad.end
+                )
+                diag
+            },
+            check = { out, err, diag ->
+                assertHasLines(
+                    err,
+                    "error: Unexpected token 'class', probably you mean identifier",
+                    " -> file:1:8",
+                    "1 | class  class MyClass",
+                    "           ~~~~~"
+                )
+            }
+        )
     }
 
     @Test
@@ -41,7 +129,36 @@ class TestDiag {
         )
 
         val expected = Token(TokenKind.IDENTIFIER, Position.fake)
-        val msg = UnexpectedTokenException(bad, expected.kind, tokens).message
-        println(msg)
+
+        withStreams(
+            { out, err ->
+                val diag = Diagnostics(outstream = out, errstream = err)
+                diag.diag(
+                    UnexpectedToken(
+                        bad,
+                        expected.kind,
+                        formatTokens(
+                            tokens,
+                            start = 0,
+                            end = tokens.lastIndex,
+                            showLines = false,
+                            onlyWindow = true
+                        ).lines()
+                    ), bad.start, bad.end
+                )
+                diag
+            },
+            check = { out, err, diag ->
+                println(err)
+                assertHasLines(
+                    err,
+                    "error: Unexpected token 'class', probably you mean identifier",
+                    " -> file:3:4",
+                    "2 |    is",
+                    "3 |    class",
+                    "       ~~~~~"
+                )
+            }
+        )
     }
 }

@@ -10,12 +10,27 @@ plugins {
 dependencies {
     implementation(libs.clikt)
 
+    implementation(project(":core"))
     implementation(project(":lex"))
-    implementation(project(":utils"))
+    implementation(project(":parser"))
+    implementation(project(":sema"))
 }
+
+private val driverClass = "koc.driver.Kocpiler"
 
 application {
     // Define the Fully Qualified Name for the application main class
     // (Note that Kotlin compiles `App.kt` to a class with FQN `com.example.app.AppKt`.)
-    mainClass = "edu.koc.driver.DriverKt"
+    mainClass = driverClass
+}
+
+tasks.named<JavaExec>("run") {
+    workingDir = project.rootDir
+}
+
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = driverClass
+        attributes["Class-Path"] = configurations.runtimeClasspath.get().joinToString(separator = " ") { it/*.toString()*/.name }
+    }
 }

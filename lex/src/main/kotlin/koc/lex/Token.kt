@@ -1,6 +1,6 @@
 package koc.lex
 
-import koc.utils.Position
+import koc.core.Position
 
 data class Token(val value: String, val kind: TokenKind, val start: Position) {
 
